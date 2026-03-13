@@ -1,47 +1,49 @@
-import "./styles/App.css";
-import gooseFile from "../data/SmartMeter475739-757493_2026-02-2209?raw";
-import gooseVueFile from "../data/VueEnergyMonitor_2026-02-22.csv?raw";
-import { createSignal } from "solid-js";
+import gooseFile from "../data/SmartMeter475739-757493_2026-02-2209.30.55.csv?raw";
+// import gooseVueFile from "../data/119B5C-Vue_Energy_Monitor-1H.csv?raw";
+// import davidJanMar2025 from "../data/David-Jan-Mar-2025-SmartMeter454449-732258_2026-03-0712.42.54.csv?raw";
+// import davidJanMar2026 from "../data/David-Jan-Mar-2026-SmartMeter454449-732258_2026-03-1123.03.21.csv?raw";
 import ChartComponent from "./components/Chart";
-import type { SmartMeterRow } from "./types/SmartMeter";
 import parseSmartMeterData from "./functions/parseSmartMeterData";
-import parseVueEnergyMonitorData from "./functions/parseVueEnergyMonitorData";
+// import parseVueEnergyMonitorData from "./functions/parseVueEnergyMonitorData";
+import "./styles/App.css";
+import { state } from "./store";
 
 function App() {
-  const [meterData, setMeterData] = createSignal<SmartMeterRow[]>([]);
-  const [headers, setHeaders] = createSignal<string[]>([]);
-  const [isTiered, setIsTiered] = createSignal(false);
-
   // Extracted CSV parsing logic
-  parseSmartMeterData(
-    gooseFile,
-    setMeterData,
-    setHeaders,
-    setIsTiered,
-    isTiered,
-  );
+  parseSmartMeterData(gooseFile);
 
-  parseVueEnergyMonitorData(gooseVueFile);
+  // parseVueEnergyMonitorData(
+  //   gooseVueFile,
+  //   setMeterData,
+  //   setHeaders,
+  //   setIsTiered,
+  // );
 
   return (
     <div>
       <h1>Smart Meter Data</h1>
-      <p>{isTiered() ? "Tiered billing" : "TOU billing"}</p>
+      <p>{state.isTiered ? "Tiered billing" : "TOU billing"}</p>
+      <p>Total Gas Cost: ${state.totalGasCost.toFixed(2)}</p>
+      <p>Total Electricity Cost: ${state.totalElectricityCost.toFixed(2)}</p>
+      <p>
+        {state.dateRange !== null &&
+          `${state.dateRange[0].toLocaleDateString()} => ${state.dateRange[1].toLocaleDateString()}`}
+      </p>
 
-      <ChartComponent meterData={meterData()} isTiered={isTiered()} />
+      <ChartComponent meterData={state.meterData} isTiered={state.isTiered} />
 
-      {meterData().length > 0 && headers().length > 0 ? (
+      {/* {state.meterData.length > 0 && state.headers.length > 0 ? (
         <table>
           <thead>
             <tr>
-              {headers().map((h) => (
+              {state.headers.map((h) => (
                 <th>{h}</th>
               ))}
             </tr>
           </thead>
 
           <tbody>
-            {meterData().map((row) => (
+            {state.meterData.map((row) => (
               <tr>
                 {Object.values(row).map((value) => (
                   <td>{value}</td>
@@ -52,7 +54,7 @@ function App() {
         </table>
       ) : (
         <p>{`Loading...`}</p>
-      )}
+      )} */}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-export const unixToTimezone = (unixTime: number, offsetSeconds: number) => {
+export const unixToTimezone = (unixTime: number, offsetSeconds: number = 0) => {
   // Convert unixtime to milliseconds
   const utcMillis = unixTime * 1000;
 

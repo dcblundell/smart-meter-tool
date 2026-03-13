@@ -31,3 +31,10 @@ table td {
   padding: 0.5rem;
   /* white-space: nowrap; */
 }
+
+.chart-container {
+  position: relative;
+  height: auto;
+  width: 100vw;
+  margin: 0 auto;
+}

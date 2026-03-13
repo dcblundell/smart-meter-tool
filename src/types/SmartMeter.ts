@@ -41,7 +41,7 @@ export interface TOUSmartMeterRow {
   "9 am KWH Usage": number;
   "10 am KWH Usage": number;
   "11 am KWH Usage": number;
-  "12 pm KWH Usage": number;
+  "12 pm KWH Usage": number; // appears twice
   "1 pm KWH Usage": number;
   "2 pm KWH Usage": number;
   "3 pm KWH Usage": number;

@@ -14,12 +14,18 @@ importers:
       chart.js:
         specifier: ^4.5.1
         version: 4.5.1
+      openmeteo:
+        specifier: ^1.2.3
+        version: 1.2.3
       papaparse:
         specifier: ^5.5.3
         version: 5.5.3
       solid-js:
         specifier: ^1.9.10
         version: 1.9.10
+      vite-clacks-overhead:
+        specifier: ^1.0.2
+        version: 1.0.2(vite@7.3.0(@types/node@24.10.4))
     devDependencies:
       '@types/node':
         specifier: ^24.10.1
@@ -292,6 +298,10 @@ packages:
   '@kurkle/color@0.3.4':
     resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
 
+  '@openmeteo/sdk@1.25.0':
+    resolution: {integrity: sha512-tpX2d/HOPn95NIU+/IU1VFFzOM3m/PqSpPSJnWuGQGEW5GogB50xUOUMrsD2N/6LCMy12e3cZEQd6c3Gb0lmtA==}
+    engines: {node: '>=12.0'}
+
   '@rollup/rollup-android-arm-eabi@4.55.1':
     resolution: {integrity: sha512-9R0DM/ykwfGIlNu6+2U09ga0WXeZ9MRC2Ter8jnz8415VbuIykVuc6bhdrbORFZANDmTDvq26mJrEVTl8TdnDg==}
     cpu: [arm]
@@ -508,6 +518,9 @@ packages:
       picomatch:
         optional: true
 
+  flatbuffers@25.9.23:
+    resolution: {integrity: sha512-MI1qs7Lo4Syw0EOzUl0xjs2lsoeqFku44KpngfIduHBYvzm8h2+7K8YMQh1JtVVVrUvhLpNwqVi4DERegUJhPQ==}
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -554,6 +567,10 @@ packages:
 
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
+
+  openmeteo@1.2.3:
+    resolution: {integrity: sha512-3updmgCMnCAAjAgV3RfhMdIBPi/43RtbjQ4CizHGn52RP9SpgmVCDRpun+Ex75NG3jTF3pZp+d1BPlP9DWMHiQ==}
+    engines: {node: '>=12.0'}
 
   papaparse@5.5.3:
     resolution: {integrity: sha512-5QvjGxYVjxO59MGU2lHVYpRWBBtKHnlIAcSe1uNFCkkptUh63NFRj0FJQm7nR67puEruUci/ZkjmEFrjCAyP4A==}
@@ -620,6 +637,11 @@ packages:
     hasBin: true
     peerDependencies:
       browserslist: '>= 4.21.0'
+
+  vite-clacks-overhead@1.0.2:
+    resolution: {integrity: sha512-yYhhtxB4upZOgePDLngH2O5jLNMwv7ktMxSBxM2v28YZLdHiTvZ+SfC77Q0nTQpA4m5PwpyLK8aObqbhQ4kaAQ==}
+    peerDependencies:
+      vite: ^4 || ^5 || ^6 || ^7
 
   vite-plugin-solid@2.11.10:
     resolution: {integrity: sha512-Yr1dQybmtDtDAHkii6hXuc1oVH9CPcS/Zb2jN/P36qqcrkNnVPsMTzQ06jyzFPFjj3U1IYKMVt/9ZqcwGCEbjw==}
@@ -894,6 +916,10 @@ snapshots:
 
   '@kurkle/color@0.3.4': {}
 
+  '@openmeteo/sdk@1.25.0':
+    dependencies:
+      flatbuffers: 25.9.23
+
   '@rollup/rollup-android-arm-eabi@4.55.1':
     optional: true
 
@@ -1079,6 +1105,8 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.3
 
+  flatbuffers@25.9.23: {}
+
   fsevents@2.3.3:
     optional: true
 
@@ -1107,6 +1135,11 @@ snapshots:
   nanoid@3.3.11: {}
 
   node-releases@2.0.27: {}
+
+  openmeteo@1.2.3:
+    dependencies:
+      '@openmeteo/sdk': 1.25.0
+      flatbuffers: 25.9.23
 
   papaparse@5.5.3: {}
 
@@ -1194,6 +1227,10 @@ snapshots:
       browserslist: 4.28.1
       escalade: 3.2.0
       picocolors: 1.1.1
+
+  vite-clacks-overhead@1.0.2(vite@7.3.0(@types/node@24.10.4)):
+    dependencies:
+      vite: 7.3.0(@types/node@24.10.4)
 
   vite-plugin-solid@2.11.10(solid-js@1.9.10)(vite@7.3.0(@types/node@24.10.4)):
     dependencies:
