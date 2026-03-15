@@ -88,8 +88,10 @@ function App() {
             <input
               type="number"
               value={state.baselineElectricityUsageKWh}
+              min={0}
+              max={100}
               onInput={(e) =>
-                setState('baselineElectricityUsageKWh', parseFloat(e.currentTarget.value))
+                setState('baselineElectricityUsageKWh', parseInt(e.currentTarget.value))
               }
             />
           </label>

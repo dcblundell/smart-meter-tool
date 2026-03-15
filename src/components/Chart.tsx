@@ -2,12 +2,12 @@ import Chart, { type ChartConfiguration } from 'chart.js/auto';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
 import { type TOUSmartMeterRow, type TieredSmartMeterRow, type SmartMeterRow, READING_DATE_KEY, TOTAL_TIER_1_KEY, TOTAL_TIER_2_KEY } from '../types/SmartMeter';
 import { GAS_EFFICIENCY, GAS_KWH_PER_M3, GasPricingBlocks } from '../types/Gas';
-import { getDynamicCOP } from '../types/HeatPumps';
 import { formatDate, parseLocalDate } from '../functions/Time';
 import { TierRate, TierThreshold, TimeOfUse, TOURate } from '../types/Electricity';
 import { state, setState } from '../store';
 import getWeather from '../functions/getWeather';
 import { LINE_CHART_CONFIG } from '../definitions/chart';
+import { getDynamicCOP } from '../types/HeatPumps';
 
 const CHART_ID = 'temp';
 
@@ -18,6 +18,9 @@ const ChartComponent = () => {
   const [temperatureData, setTemperatureData] = createSignal<number[]>([]);
 
   createEffect(async () => {
+    // @ts-ignore - triggers the effect when baselineElectricityUsageKWh changes, refactor later
+    const baseline = state.baselineElectricityUsageKWh;
+    
     if (!state.meterData) return;
 
     let weatherData = state.weatherData;
@@ -119,10 +122,17 @@ const generateChart = (
   //   isTiered,
   // );
 
-  let cumulativeGas = 0;
-  const gasCostData = meterData.map((row, index) =>
-    getEstimatedGasCost(row, cumulativeGas, index, isTiered, temperatureData),
-  );
+  const gasCostData = meterData.map((row, index) => {
+    const tempC = temperatureData[index];
+    const kWhUsedForHeating = isTiered
+      ? getTierConsumption(row as TieredSmartMeterRow)
+      : getTOUConsumption(row as TOUSmartMeterRow);
+    const heatDelivered = kWhUsedForHeating * getDynamicCOP(tempC);
+    const gasM3 = heatDelivered / (GAS_EFFICIENCY * GAS_KWH_PER_M3);
+    const cost = getEstimatedGasCost(gasM3);
+
+    return cost;
+  });
 
   const chartConfig: ChartConfiguration<'line'> = {
     ...LINE_CHART_CONFIG,
@@ -205,42 +215,14 @@ const generateChart = (
 };
 
 const getEstimatedGasCost = (
-  row: SmartMeterRow,
-  cumulativeGas: number,
-  i: number,
-  isTiered: boolean,
-  temperatureData: number[],
+  gasM3: number,
 ) => {
-  const electricUsed = isTiered
-    ? getTierConsumption(row as TieredSmartMeterRow)
-    : getTOUConsumption(row as TOUSmartMeterRow);
-  const tempC = temperatureData[i];
-  const dynamicCOP = getDynamicCOP(tempC);
-  const heatDelivered = electricUsed * dynamicCOP;
-  const gasM3 = heatDelivered / (GAS_KWH_PER_M3 * GAS_EFFICIENCY);
-
-  let remaining = gasM3;
-  let cost = 0;
-  let blockStart = cumulativeGas;
-
-  for (const block of GasPricingBlocks) {
-    const blockEnd = blockStart + block.limit;
-    const blockUsage = Math.min(remaining, blockEnd - blockStart);
-    if (blockUsage > 0) {
-      cost += blockUsage * block.price;
-      remaining -= blockUsage;
-      blockStart += blockUsage;
-    }
-    if (remaining <= 0) break;
-  }
-
-  cumulativeGas += gasM3;
-
-  return cost;
+  return gasM3 * GasPricingBlocks[0].price; // Simplified: using first block price for estimation
 };
 
 // Helper to calculate tier heating values
-const getTierHeating = (tier1: number, tier2: number, baseline: number) => {
+const getTierHeating = (tier1: number, tier2: number) => {
+  const baseline = state.baselineElectricityUsageKWh;
   let tier1Heating = 0;
   let tier2Heating = 0;
   if (tier1 > 0 && tier2 > 0) {
@@ -264,18 +246,14 @@ const getTierHeating = (tier1: number, tier2: number, baseline: number) => {
 const getTierConsumption = (row: TieredSmartMeterRow) => {
   const tier1 = row[TOTAL_TIER_1_KEY];
   const tier2 = row[TOTAL_TIER_2_KEY];
-  const baseline = state.baselineElectricityUsageKWh;
-  const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2, baseline);
-
+  const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2);
   return tier1Heating + tier2Heating;
 };
 
 const getTierCost = (row: TieredSmartMeterRow) => {
   const tier1 = row[TOTAL_TIER_1_KEY];
   const tier2 = row[TOTAL_TIER_2_KEY];
-  const baseline = state.baselineElectricityUsageKWh;
-  const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2, baseline);
-
+  const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2);
   return (
     tier1Heating * TierRate[TierThreshold.TIER_1] + tier2Heating * TierRate[TierThreshold.TIER_2]
   );
@@ -332,12 +310,12 @@ const getTOUCost = (row: TOUSmartMeterRow) => {
 //   const cumulativeGasCostArr: number[] = [];
 
 //   meterData.forEach((row, i) => {
-//     const electricUsed = isTiered
+//     const kWhUsedForHeating = isTiered
 //       ? getTierConsumption(row as TieredSmartMeterRow)
 //       : getTOUConsumption(row as TOUSmartMeterRow);
 //     const tempC = weatherData.daily.apparent_temperature_mean[i];
 //     const dynamicCOP = getDynamicCOP(tempC);
-//     const heatDelivered = electricUsed * dynamicCOP;
+//     const heatDelivered = kWhUsedForHeating * dynamicCOP;
 //     // Convert heat delivered to gas m³
 //     const gasM3 = heatDelivered / (GAS_KWH_PER_M3 * GAS_EFFICIENCY);
 //     let remaining = gasM3;
