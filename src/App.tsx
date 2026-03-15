@@ -7,7 +7,7 @@ import parseSmartMeterData from './functions/parseSmartMeterData';
 import { createSignal } from 'solid-js';
 // import parseVueEnergyMonitorData from "./functions/parseVueEnergyMonitorData";
 import './styles/App.css';
-import { state, setState } from './store';
+import { state, setState, resetChartState } from './store';
 import { formatPricing } from './functions/math';
 import validateUtilitiesKingstonData from './functions/validateUtilitiesKingstonData';
 
@@ -33,6 +33,7 @@ function App() {
           accept=".csv,text/csv"
           onInput={async (e) => {
             setError(null);
+            resetChartState();
             const file = e.currentTarget.files?.[0];
 
             if (!file) return;
@@ -41,7 +42,6 @@ function App() {
 
             if (!(await validateUtilitiesKingstonData(text))) {
               setError('Invalid CSV format');
-              console.log('validation failed', text);
               return;
             }
 

@@ -22,7 +22,7 @@ const ChartComponent = () => {
 
     let weatherData = state.weatherData;
 
-    if (state.dateRange && (!state.weatherData || state.weatherData === null)) {
+    if (state.dateRange) {
       weatherData = await getWeather(state.dateRange);
       setState('weatherData', weatherData);
 
@@ -60,10 +60,7 @@ const ChartComponent = () => {
       }
     }
 
-    const labels = state.meterData.map((row) => {
-      console.log('Original date string:', row[READING_DATE_KEY]);
-      return formatDate(parseLocalDate(row[READING_DATE_KEY]));
-    });
+    const labels = state.meterData.map((row) => formatDate(parseLocalDate(row[READING_DATE_KEY])));
 
     setFormattedLabels(labels);
 

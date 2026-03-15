@@ -98,8 +98,6 @@ const parseVueEnergyMonitorData = (
         return key;
       });
 
-      console.log('transformed', transformed);
-
       setIsTiered(true);
       setMeterData(transformed);
       setHeaders(formattedHeaders);

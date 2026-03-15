@@ -32,5 +32,16 @@ const [state, setState] = createStore<AppState>({
   baselineElectricityUsageKWh: BASE_ELECTRICITY_USAGE_KWH,
 });
 
-export { state, setState };
+const resetChartState = () => {
+  setState('meterData', null);
+  setState('headers', []);
+  setState('totalGasCost', 0);
+  setState('totalElectricityCost', 0);
+  setState('isTiered', false);
+  setState('weatherData', null);
+  setState('dateRange', null);
+  setState('baselineElectricityUsageKWh', BASE_ELECTRICITY_USAGE_KWH);
+}
+
+export { state, setState, resetChartState };
 export type { WeatherData };
