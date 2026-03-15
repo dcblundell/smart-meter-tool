@@ -43,3 +43,6 @@ jobs:
         with:
           package_manager: pnpm
           build_path: ./dist
+          working_path: .
+          install_phase_node_env: dev
+          build_phase_node_env: production
