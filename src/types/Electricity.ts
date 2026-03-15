@@ -1,12 +1,12 @@
 export enum RateType {
-  TOU = "TOU", // Time of use
-  Tiered = "Tier",
-  OLU = "OLU", // Ultra-Low Overnight
+  TOU = 'TOU', // Time of use
+  Tiered = 'Tier',
+  OLU = 'OLU', // Ultra-Low Overnight
 }
 
 export enum TierThreshold {
-  TIER_1 = "Tier 1",
-  TIER_2 = "Tier 2",
+  TIER_1 = 'Tier 1',
+  TIER_2 = 'Tier 2',
 }
 
 export const TierRate = {
@@ -15,9 +15,9 @@ export const TierRate = {
 };
 
 export enum TimeOfUse {
-  ON_PEAK = "On-Peak",
-  MID_PEAK = "Mid-Peak",
-  OFF_PEAK = "Off-Peak",
+  ON_PEAK = 'On-Peak',
+  MID_PEAK = 'Mid-Peak',
+  OFF_PEAK = 'Off-Peak',
 }
 
 export const TOURate = {

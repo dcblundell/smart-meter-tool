@@ -1,9 +1,9 @@
 export enum Season {
-  WINTER = "Winter",
-  SUMMER = "Summer",
+  WINTER = 'Winter',
+  SUMMER = 'Summer',
 }
 
 export enum CustomerType {
-  RESIDENTIAL = "Residential",
-  NON_RESIDENTIAL = "Non-residential",
+  RESIDENTIAL = 'Residential',
+  NON_RESIDENTIAL = 'Non-residential',
 }

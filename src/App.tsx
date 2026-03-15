@@ -2,13 +2,14 @@
 // import gooseVueFile from "../data/119B5C-Vue_Energy_Monitor-1H.csv?raw";
 // import ukData from "../data/David-Jan-Mar-2025-SmartMeter454449-732258_2026-03-0712.42.54.csv?raw";
 // import ukData from "../data/David-Jan-Mar-2026-SmartMeter454449-732258_2026-03-1123.03.21.csv?raw";
-import ChartComponent from "./components/Chart";
-import parseSmartMeterData from "./functions/parseSmartMeterData";
-import { createSignal } from "solid-js";
+import ChartComponent from './components/Chart';
+import parseSmartMeterData from './functions/parseSmartMeterData';
+import { createSignal } from 'solid-js';
 // import parseVueEnergyMonitorData from "./functions/parseVueEnergyMonitorData";
-import "./styles/App.css";
-import { state, setState } from "./store";
-import { formatPricing } from "./functions/math";
+import './styles/App.css';
+import { state, setState } from './store';
+import { formatPricing } from './functions/math';
+import validateUtilitiesKingstonData from './functions/validateUtilitiesKingstonData';
 
 function App() {
   const [error, setError] = createSignal<string | null>(null);
@@ -33,29 +34,23 @@ function App() {
           onInput={async (e) => {
             setError(null);
             const file = e.currentTarget.files?.[0];
+
             if (!file) return;
+
             const text = await file.text();
-            // Basic validation: check for required headers
-            const firstLine = text.split(/\r?\n/)[0];
-            const headers = firstLine.split(",").map((h) => h.trim());
-            const hasReadingDate = headers.includes('"Reading Date"');
-            const hasTiered = headers.includes(
-              '"[touInquiry_download_Total_Tier_1_Consumption]"',
-            );
-            const hasTOU =
-              headers.includes('"Total On-Peak kwH Usage"') &&
-              headers.includes('"Total Mid-Peak kwH Usage"') &&
-              headers.includes('"Total Off-Peak kwH Usage *"');
-            if (!hasReadingDate || (!hasTiered && !hasTOU)) {
-              setError("Invalid CSV format: missing required columns.");
+
+            if (!(await validateUtilitiesKingstonData(text))) {
+              setError('Invalid CSV format');
+              console.log('validation failed', text);
               return;
             }
+
             parseSmartMeterData(text);
           }}
         />
       </label>
       {error() && (
-        <div class="error" style={{ color: "red" }}>
+        <div class="error" style={{ color: 'red' }}>
           {error()}
         </div>
       )}
@@ -65,26 +60,25 @@ function App() {
       ) : (
         <>
           <p>
+            {state.isTiered ? 'Tiered billing' : 'TOU billing'} -
             {state.dateRange !== null &&
               `${state.dateRange[0].toLocaleDateString()} => ${state.dateRange[1].toLocaleDateString()}`}
           </p>
-          <p>{state.isTiered ? "Tiered billing" : "TOU billing"}</p>
+
+          <ChartComponent />
+
           <p>🔥 Gas {formatPricing(state.totalGasCost)}</p>
           <p>⚡ Electricity {formatPricing(state.totalElectricityCost)}</p>
           <p>
-            Price difference:{" "}
+            Price difference:{' '}
             <span
-              class={
-                state.totalGasCost - state.totalElectricityCost > 0
-                  ? "positive"
-                  : "negative"
-              }
+              class={state.totalGasCost - state.totalElectricityCost > 0 ? 'positive' : 'negative'}
             >
-              {formatPricing(state.totalGasCost - state.totalElectricityCost)}{" "}
+              {formatPricing(state.totalGasCost - state.totalElectricityCost)}{' '}
               {
                 state.totalGasCost - state.totalElectricityCost > 0
-                  ? "👍" // Gas more expensive: positive (fire + thumbs up)
-                  : "👎" // Electricity more expensive: negative (lightning + thumbs down)
+                  ? '👍' // Gas more expensive: positive (fire + thumbs up)
+                  : '👎' // Electricity more expensive: negative (lightning + thumbs down)
               }
             </span>
           </p>
@@ -95,15 +89,10 @@ function App() {
               type="number"
               value={state.baselineElectricityUsageKWh}
               onInput={(e) =>
-                setState(
-                  "baselineElectricityUsageKWh",
-                  parseFloat(e.currentTarget.value),
-                )
+                setState('baselineElectricityUsageKWh', parseFloat(e.currentTarget.value))
               }
             />
           </label>
-
-          <ChartComponent />
         </>
       )}
 

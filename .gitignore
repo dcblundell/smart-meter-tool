@@ -139,3 +139,6 @@ vite.config.ts.timestamp-*
 
 # OS
 data/.~lock*
+.prettierrc
+.prettierignore
+.DS_Store

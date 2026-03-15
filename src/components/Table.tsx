@@ -1,9 +1,7 @@
-import { state } from "../store";
+import { state } from '../store';
 
 const Table = () => {
-  return state?.meterData &&
-    state.meterData.length > 0 &&
-    state.headers.length > 0 ? (
+  return state?.meterData && state.meterData.length > 0 && state.headers.length > 0 ? (
     <table>
       <thead>
         <tr>

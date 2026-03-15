@@ -1,24 +1,15 @@
-import Chart, { type ChartConfiguration } from "chart.js/auto";
-import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
-import type {
-  TOUSmartMeterRow,
-  TieredSmartMeterRow,
-  SmartMeterRow,
-} from "../types/SmartMeter";
-import { GAS_EFFICIENCY, GAS_KWH_PER_M3, GasPricingBlocks } from "../types/Gas";
-import { getDynamicCOP } from "../types/HeatPumps";
-import { unixToTimezone } from "../functions/Time";
-import {
-  TierRate,
-  TierThreshold,
-  TimeOfUse,
-  TOURate,
-} from "../types/Electricity";
-import { state, setState } from "../store";
-import getWeather from "../functions/getWeather";
-import { LINE_CHART_CONFIG } from "../definitions/chart";
+import Chart, { type ChartConfiguration } from 'chart.js/auto';
+import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { type TOUSmartMeterRow, type TieredSmartMeterRow, type SmartMeterRow, READING_DATE_KEY, TOTAL_TIER_1_KEY, TOTAL_TIER_2_KEY } from '../types/SmartMeter';
+import { GAS_EFFICIENCY, GAS_KWH_PER_M3, GasPricingBlocks } from '../types/Gas';
+import { getDynamicCOP } from '../types/HeatPumps';
+import { formatDate, parseLocalDate } from '../functions/Time';
+import { TierRate, TierThreshold, TimeOfUse, TOURate } from '../types/Electricity';
+import { state, setState } from '../store';
+import getWeather from '../functions/getWeather';
+import { LINE_CHART_CONFIG } from '../definitions/chart';
 
-const CHART_ID = "temp";
+const CHART_ID = 'temp';
 
 const ChartComponent = () => {
   let canvasRef: HTMLCanvasElement | undefined;
@@ -26,55 +17,56 @@ const ChartComponent = () => {
   const [formattedLabels, setFormattedLabels] = createSignal<string[]>([]);
   const [temperatureData, setTemperatureData] = createSignal<number[]>([]);
 
-  onMount(async () => {
-    // Fetch weather data if not already in store
-    if (!state.weatherData) {
-      const weatherData = await getWeather();
-      setState("weatherData", weatherData);
-    }
+  createEffect(async () => {
+    if (!state.meterData) return;
 
-    if (canvasRef && state.meterData !== null && state.weatherData !== null) {
-      const weatherData = state.weatherData;
-      const labels = state.meterData.map((row) =>
-        unixToTimezone(new Date(row["Reading Date"]).getTime() / 1000),
-      );
-      setFormattedLabels(labels);
+    let weatherData = state.weatherData;
+
+    if (state.dateRange && (!state.weatherData || state.weatherData === null)) {
+      weatherData = await getWeather(state.dateRange);
+      setState('weatherData', weatherData);
+
+      if (weatherData === null || !weatherData?.daily || !weatherData.daily.time || !weatherData.daily.apparent_temperature_mean) {
+        console.error('Failed to fetch weather data');
+        return;
+      }
 
       const data = state.meterData.map((row) => {
-        const readingDate = new Date(row["Reading Date"]);
-        const closestTempIndex = weatherData.daily.time.reduce(
-          (nearest, current, i) => {
-            const timeDiff = Math.abs(
-              current.getTime() - readingDate.getTime(),
-            );
-            const nearestDiff = Math.abs(
-              weatherData.daily.time[nearest].getTime() - readingDate.getTime(),
-            );
-            return timeDiff < nearestDiff ? i : nearest;
-          },
-          0,
-        );
+        const readingDate = new Date(row[READING_DATE_KEY]);
+        const closestTempIndex = weatherData?.daily.time.reduce((nearest, current, i) => {
+          const readingDateTime = readingDate.getTime();
+          const currentTime = current.getTime();
+          const timeDiff = Math.abs(currentTime - readingDateTime);
+          const nearestTime = weatherData?.daily.time[nearest].getTime();
 
-        return weatherData.daily.apparent_temperature_mean[closestTempIndex];
+          if (nearestTime === undefined) return i;
+
+          const nearestDiff = Math.abs(nearestTime - readingDateTime);
+          return timeDiff < nearestDiff ? i : nearest;
+        }, 0);
+
+        if (
+          typeof closestTempIndex === 'number' &&
+          Array.isArray(weatherData?.daily.apparent_temperature_mean) &&
+          weatherData?.daily.apparent_temperature_mean[closestTempIndex] !== undefined
+        ) {
+          return weatherData.daily.apparent_temperature_mean[closestTempIndex];
+        }
+        return null;
       });
 
-      setTemperatureData(data);
-
-      if (chart) {
-        chart.destroy();
+      if (data) {
+        setTemperatureData(data.filter((v): v is number => v !== null));
       }
-      chart = generateChart(
-        canvasRef,
-        state.meterData,
-        state.isTiered,
-        labels,
-        data,
-        chart,
-      );
     }
-  });
 
-  createEffect(() => {
+    const labels = state.meterData.map((row) => {
+      console.log('Original date string:', row[READING_DATE_KEY]);
+      return formatDate(parseLocalDate(row[READING_DATE_KEY]));
+    });
+
+    setFormattedLabels(labels);
+
     if (canvasRef && state.weatherData && state.meterData) {
       if (chart) {
         chart.destroy();
@@ -135,17 +127,17 @@ const generateChart = (
     getEstimatedGasCost(row, cumulativeGas, index, isTiered, temperatureData),
   );
 
-  const chartConfig: ChartConfiguration<"line"> = {
+  const chartConfig: ChartConfiguration<'line'> = {
     ...LINE_CHART_CONFIG,
     data: {
       labels: formattedLabels,
       datasets: [
         {
-          label: "Temperature (°C)",
+          label: 'Temperature (°C)',
           data: temperatureData,
-          yAxisID: "y",
-          borderColor: "#36a2eb",
-          backgroundColor: "#36a2eb33",
+          yAxisID: 'y',
+          borderColor: '#36a2eb',
+          backgroundColor: '#36a2eb33',
           pointRadius: 1,
           order: 1,
         },
@@ -159,20 +151,20 @@ const generateChart = (
         //   order: 2,
         // },
         {
-          label: "Electricity Cost ($)",
+          label: 'Electricity Cost ($)',
           data: electricCostArr,
-          yAxisID: "y1",
-          borderColor: "#4bc0c0",
-          backgroundColor: "#4bc0c033",
+          yAxisID: 'y1',
+          borderColor: '#4bc0c0',
+          backgroundColor: '#4bc0c033',
           pointRadius: 1,
           order: 3,
         },
         {
-          label: "Estimated Gas Cost ($)",
+          label: 'Estimated Gas Cost ($)',
           data: gasCostData,
-          yAxisID: "y1",
-          borderColor: "#ff6384",
-          backgroundColor: "#ff638433",
+          yAxisID: 'y1',
+          borderColor: '#ff6384',
+          backgroundColor: '#ff638433',
           pointRadius: 1,
           order: 4,
         },
@@ -206,15 +198,10 @@ const generateChart = (
 
   const newChart = new Chart(canvasRef, chartConfig);
 
+  setState('totalGasCost', gasCostData?.length > 0 ? gasCostData.reduce((a, b) => a + b, 0) : 0);
   setState(
-    "totalGasCost",
-    gasCostData?.length > 0 ? gasCostData.reduce((a, b) => a + b, 0) : 0,
-  );
-  setState(
-    "totalElectricityCost",
-    electricCostArr?.length > 0
-      ? electricCostArr.reduce((a, b) => a + b, 0)
-      : 0,
+    'totalElectricityCost',
+    electricCostArr?.length > 0 ? electricCostArr.reduce((a, b) => a + b, 0) : 0,
   );
 
   return newChart;
@@ -278,8 +265,8 @@ const getTierHeating = (tier1: number, tier2: number, baseline: number) => {
 };
 
 const getTierConsumption = (row: TieredSmartMeterRow) => {
-  const tier1 = row["[touInquiry_download_Total_Tier_1_Consumption]"];
-  const tier2 = row["[touInquiry_download_Total_Tier_2_Consumption]"];
+  const tier1 = row[TOTAL_TIER_1_KEY];
+  const tier2 = row[TOTAL_TIER_2_KEY];
   const baseline = state.baselineElectricityUsageKWh;
   const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2, baseline);
 
@@ -287,21 +274,20 @@ const getTierConsumption = (row: TieredSmartMeterRow) => {
 };
 
 const getTierCost = (row: TieredSmartMeterRow) => {
-  const tier1 = row["[touInquiry_download_Total_Tier_1_Consumption]"];
-  const tier2 = row["[touInquiry_download_Total_Tier_2_Consumption]"];
+  const tier1 = row[TOTAL_TIER_1_KEY];
+  const tier2 = row[TOTAL_TIER_2_KEY];
   const baseline = state.baselineElectricityUsageKWh;
   const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2, baseline);
 
   return (
-    tier1Heating * TierRate[TierThreshold.TIER_1] +
-    tier2Heating * TierRate[TierThreshold.TIER_2]
+    tier1Heating * TierRate[TierThreshold.TIER_1] + tier2Heating * TierRate[TierThreshold.TIER_2]
   );
 };
 
 const getTOUConsumption = (row: TOUSmartMeterRow) => {
-  const onPeak = row["Total On-Peak kwH Usage"] || 0;
-  const midPeak = row["Total Mid-Peak kwH Usage"] || 0;
-  const offPeak = row["Total Off-Peak kwH Usage *"] || 0;
+  const onPeak = row['Total On-Peak kwH Usage'] || 0;
+  const midPeak = row['Total Mid-Peak kwH Usage'] || 0;
+  const offPeak = row['Total Off-Peak kwH Usage *'] || 0;
   const baseline = state.baselineElectricityUsageKWh;
 
   // Split baseline evenly across all periods with usage
@@ -317,9 +303,9 @@ const getTOUConsumption = (row: TOUSmartMeterRow) => {
 };
 
 const getTOUCost = (row: TOUSmartMeterRow) => {
-  const onPeak = row["Total On-Peak kwH Usage"] || 0;
-  const midPeak = row["Total Mid-Peak kwH Usage"] || 0;
-  const offPeak = row["Total Off-Peak kwH Usage *"] || 0;
+  const onPeak = row['Total On-Peak kwH Usage'] || 0;
+  const midPeak = row['Total Mid-Peak kwH Usage'] || 0;
+  const offPeak = row['Total Off-Peak kwH Usage *'] || 0;
   const baseline = state.baselineElectricityUsageKWh;
 
   // Split baseline evenly across all periods with usage

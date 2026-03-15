@@ -1,5 +1,5 @@
-import { createStore } from "solid-js/store";
-import type { SmartMeterRow } from "./types/SmartMeter";
+import { createStore } from 'solid-js/store';
+import type { SmartMeterRow } from './types/SmartMeter';
 
 interface WeatherData {
   daily: {

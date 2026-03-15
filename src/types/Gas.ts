@@ -1,4 +1,4 @@
-import { CustomerType } from "./Energy";
+import { CustomerType } from './Energy';
 
 export const GasServiceCharge = {
   [CustomerType.RESIDENTIAL]: 27.17,

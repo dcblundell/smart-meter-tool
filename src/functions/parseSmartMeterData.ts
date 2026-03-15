@@ -1,15 +1,14 @@
-import Papa, { type ParseResult } from "papaparse";
-import type { SmartMeterRow } from "../types/SmartMeter";
-import { TIERED_HEADER_MAP, TOU_HEADER_MAP } from "../types/UtilitiesKingston";
-import { setState } from "../store";
+import Papa, { type ParseResult } from 'papaparse';
+import { READING_DATE_KEY, TOTAL_TIER_1_KEY, type SmartMeterRow } from '../types/SmartMeter';
+import { TIERED_HEADER_MAP, TOU_HEADER_MAP } from '../types/UtilitiesKingston';
+import { setState } from '../store';
+import { parseLocalDate } from './Time';
 
-const TOTAL_TIER_1_KEY = "[touInquiry_download_Total_Tier_1_Consumption]";
-const READING_DATE_KEY = "Reading Date";
-const AM_LABEL = "am";
-const PM_LABEL = "pm";
+const AM_LABEL = 'am';
+const PM_LABEL = 'pm';
 const AM_PM_REGEX = /(\d{1,2})\s*(am|pm)/i;
-const KWH_UNIT = "kWh";
-const KWH_LABEL_BIT = "KWH";
+const KWH_UNIT = 'kWh';
+const KWH_LABEL_BIT = 'KWH';
 
 const parseSmartMeterData = (csvFile: string): void => {
   Papa.parse(csvFile, {
@@ -23,8 +22,7 @@ const parseSmartMeterData = (csvFile: string): void => {
     },
     complete: (results: ParseResult<SmartMeterRow>) => {
       const isTieredFormat =
-        results.meta.fields?.some((field) => field === TOTAL_TIER_1_KEY) ??
-        false;
+        results.meta.fields?.some((field) => field === TOTAL_TIER_1_KEY) ?? false;
 
       const formattedHeaders =
         results.meta.fields?.map((header) => {
@@ -47,19 +45,18 @@ const parseSmartMeterData = (csvFile: string): void => {
           return header;
         }) || [];
 
-      const data: SmartMeterRow[] = results.data.filter(
-        (row) => row[READING_DATE_KEY],
-      );
+      const data: SmartMeterRow[] = results.data.filter((row) => row[READING_DATE_KEY]);
 
-      setState("isTiered", isTieredFormat);
-      setState("meterData", data);
-      setState("headers", formattedHeaders);
+      setState('isTiered', isTieredFormat);
+      setState('meterData', data);
+      setState('headers', formattedHeaders);
 
       if (data.length > 0) {
-        const dates = data.map((row) => new Date(row[READING_DATE_KEY]));
+        const dates = data.map((row) => parseLocalDate(row[READING_DATE_KEY]));
         const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
         const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
-        setState("dateRange", [minDate, maxDate]);
+
+        setState('dateRange', [minDate, maxDate]);
       }
     },
   });

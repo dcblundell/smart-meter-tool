@@ -1,28 +1,28 @@
-import type { ChartConfiguration } from "chart.js";
+import { type ChartConfiguration } from 'chart.js';
 
-export const LINE_CHART_CONFIG: Omit<ChartConfiguration<"line">, "data"> = {
-  type: "line",
+export const LINE_CHART_CONFIG: Omit<ChartConfiguration<'line'>, 'data'> = {
+  type: 'line',
   options: {
     scales: {
       y: {
-        type: "linear",
+        type: 'linear',
         display: true,
-        position: "left",
+        position: 'left',
         title: {
           display: true,
-          text: "Temperature (°C)",
+          text: 'Temperature (°C)',
         },
       },
       y1: {
-        type: "linear",
+        type: 'linear',
         display: true,
-        position: "right",
+        position: 'right',
         grid: {
           drawOnChartArea: false,
         },
         title: {
           display: true,
-          text: "Cost ($)",
+          text: 'Cost ($)',
         },
       },
       // y2: {
@@ -42,15 +42,15 @@ export const LINE_CHART_CONFIG: Omit<ChartConfiguration<"line">, "data"> = {
     plugins: {
       legend: {
         display: true,
-        position: "top",
+        position: 'top',
       },
       tooltip: {
-        mode: "index",
+        mode: 'index',
         intersect: false,
         callbacks: {
           label: function (context) {
-            let label = context.dataset.label || "";
-            if (label) label += ": ";
+            let label = context.dataset.label || '';
+            if (label) label += ': ';
             if (context.parsed.y != null) label += context.parsed.y.toFixed(2);
             return label;
           },
@@ -58,8 +58,8 @@ export const LINE_CHART_CONFIG: Omit<ChartConfiguration<"line">, "data"> = {
       },
     },
     interaction: {
-      mode: "nearest",
-      axis: "x",
+      mode: 'nearest',
+      axis: 'x',
       intersect: false,
     },
   },
