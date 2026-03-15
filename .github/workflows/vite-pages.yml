@@ -25,12 +25,15 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: .
 
       - name: Build
         run: pnpm build
+        working-directory: .
 
       - name: Deploy to GitHub Pages
         uses: skywarth/vite-github-pages-deployer@v1.5.0
         with:
           package_manager: pnpm
           build_path: ./dist
+          working_path: .
