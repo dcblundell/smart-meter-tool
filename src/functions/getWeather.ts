@@ -1,5 +1,5 @@
 import { fetchWeatherApi } from "openmeteo";
-import { state } from "../store";
+import { state, type WeatherData } from "../store";
 
 const PARAMS = {
   latitude: 44.2298, // Kingston, Ontario
@@ -11,9 +11,8 @@ const PARAMS = {
 };
 const URL = "https://archive-api.open-meteo.com/v1/archive";
 
-const getWeather = async () => {
+const getWeather = async (): Promise<WeatherData | null> => {
   if (state.dateRange !== null) {
-    console.log("state", state);
     const fetchParams = {
       ...PARAMS,
       start_date: state.dateRange[0].toISOString().split("T")[0],
@@ -46,6 +45,8 @@ const getWeather = async () => {
         apparent_temperature_mean: tempArray ? Array.from(tempArray) : [],
       },
     };
+  } else {
+    return null;
   }
 };
 

@@ -38,3 +38,11 @@ table td {
   width: 100vw;
   margin: 0 auto;
 }
+
+.positive {
+  color: green;
+}
+
+.negative {
+  color: red;
+}

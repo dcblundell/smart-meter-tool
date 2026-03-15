@@ -1,5 +1,5 @@
-import Chart from "chart.js/auto";
-import { onMount } from "solid-js";
+import Chart, { type ChartConfiguration } from "chart.js/auto";
+import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type {
   TOUSmartMeterRow,
   TieredSmartMeterRow,
@@ -16,18 +16,15 @@ import {
 } from "../types/Electricity";
 import { state, setState } from "../store";
 import getWeather from "../functions/getWeather";
+import { LINE_CHART_CONFIG } from "../definitions/chart";
 
 const CHART_ID = "temp";
-const BASE_ELECTRICITY_USAGE_KWH = 20;
 
-const ChartComponent = ({
-  meterData,
-  isTiered,
-}: {
-  meterData: SmartMeterRow[];
-  isTiered: boolean;
-}) => {
+const ChartComponent = () => {
   let canvasRef: HTMLCanvasElement | undefined;
+  let chart: Chart | null = null;
+  const [formattedLabels, setFormattedLabels] = createSignal<string[]>([]);
+  const [temperatureData, setTemperatureData] = createSignal<number[]>([]);
 
   onMount(async () => {
     // Fetch weather data if not already in store
@@ -36,14 +33,14 @@ const ChartComponent = ({
       setState("weatherData", weatherData);
     }
 
-    if (canvasRef && state.weatherData) {
+    if (canvasRef && state.meterData !== null && state.weatherData !== null) {
       const weatherData = state.weatherData;
-      const formattedLabels = meterData.map((row) =>
+      const labels = state.meterData.map((row) =>
         unixToTimezone(new Date(row["Reading Date"]).getTime() / 1000),
       );
+      setFormattedLabels(labels);
 
-      // Get temperature for each meter reading by finding the closest daily reading
-      const temperatureData = meterData.map((row) => {
+      const data = state.meterData.map((row) => {
         const readingDate = new Date(row["Reading Date"]);
         const closestTempIndex = weatherData.daily.time.reduce(
           (nearest, current, i) => {
@@ -57,174 +54,47 @@ const ChartComponent = ({
           },
           0,
         );
+
         return weatherData.daily.apparent_temperature_mean[closestTempIndex];
       });
 
-      // Adjusted electric cost: only the electricity used for heating
-      const electricCostArr = isTiered
-        ? (meterData as TieredSmartMeterRow[]).map(getTierCost)
-        : (meterData as TOUSmartMeterRow[]).map(getTOUCost);
-      // const cumulativeElectricCost = electricCostArr.reduce((acc, val) => {
-      //   if (acc.length === 0) return [val];
-      //   acc.push(acc[acc.length - 1] + val);
-      //   return acc;
-      // }, [] as number[]);
+      setTemperatureData(data);
 
-      // Cumulative gas cost (using heat delivered by heat pump with dynamic COP)
-      // const cumulativeGasCostArr = calculateCumulativeGasCost(
-      //   meterData,
-      //   weatherData,
-      //   isTiered,
-      // );
-
-      let cumulativeGas = 0;
-      const gasCostData = meterData.map((row, index) =>
-        getEstimatedGasCost(
-          row,
-          cumulativeGas,
-          index,
-          isTiered,
-          temperatureData,
-        ),
+      if (chart) {
+        chart.destroy();
+      }
+      chart = generateChart(
+        canvasRef,
+        state.meterData,
+        state.isTiered,
+        labels,
+        data,
+        chart,
       );
+    }
+  });
 
-      new Chart(canvasRef, {
-        type: "line",
-        data: {
-          labels: formattedLabels,
-          datasets: [
-            {
-              label: "Temperature (°C)",
-              data: temperatureData,
-              yAxisID: "y",
-              borderColor: "#36a2eb",
-              backgroundColor: "#36a2eb33",
-              pointRadius: 1,
-              order: 1,
-            },
-            // {
-            //   label: "Heating kWh Delivered (COP-adjusted)",
-            //   data: heatingKWhArr,
-            //   yAxisID: "y2",
-            //   borderColor: "#ffa600",
-            //   backgroundColor: "#ffa60033",
-            //   pointRadius: 1,
-            //   order: 2,
-            // },
-            {
-              label: "Electricity Cost ($)",
-              data: electricCostArr,
-              yAxisID: "y1",
-              borderColor: "#4bc0c0",
-              backgroundColor: "#4bc0c033",
-              pointRadius: 1,
-              order: 3,
-            },
-            {
-              label: "Estimated Gas Cost ($)",
-              data: gasCostData,
-              yAxisID: "y1",
-              borderColor: "#ff6384",
-              backgroundColor: "#ff638433",
-              pointRadius: 1,
-              order: 4,
-            },
-            // {
-            //   label: "Cumulative Electric Cost ($)",
-            //   data: cumulativeElectricCost,
-            //   yAxisID: "y1",
-            //   borderColor: "#0057b8",
-            //   backgroundColor: "#0057b833",
-            //   borderDash: [5, 5],
-            //   pointRadius: 0,
-            //   order: 5,
-            // },
-            // {
-            //   label: "Cumulative Gas Cost ($)",
-            //   data: cumulativeGasCostArr,
-            //   yAxisID: "y1",
-            //   borderColor: "#b80000",
-            //   backgroundColor: "#b8000033",
-            //   borderDash: [5, 5],
-            //   pointRadius: 0,
-            //   order: 6,
-            // },
-          ],
-        },
-        options: {
-          scales: {
-            y: {
-              type: "linear",
-              display: true,
-              position: "left",
-              title: {
-                display: true,
-                text: "Temperature (°C)",
-              },
-            },
-            y1: {
-              type: "linear",
-              display: true,
-              position: "right",
-              grid: {
-                drawOnChartArea: false,
-              },
-              title: {
-                display: true,
-                text: "Cost ($)",
-              },
-            },
-            // y2: {
-            //   type: "linear",
-            //   display: true,
-            //   position: "right",
-            //   grid: {
-            //     drawOnChartArea: false,
-            //   },
-            //   title: {
-            //     display: true,
-            //     text: "Heating kWh",
-            //   },
-            //   offset: true,
-            // },
-          },
-          plugins: {
-            legend: {
-              display: true,
-              position: "top",
-            },
-            tooltip: {
-              mode: "index",
-              intersect: false,
-              callbacks: {
-                label: function (context) {
-                  let label = context.dataset.label || "";
-                  if (label) label += ": ";
-                  if (context.parsed.y != null)
-                    label += context.parsed.y.toFixed(2);
-                  return label;
-                },
-              },
-            },
-          },
-          interaction: {
-            mode: "nearest",
-            axis: "x",
-            intersect: false,
-          },
-        },
-      });
+  createEffect(() => {
+    if (canvasRef && state.weatherData && state.meterData) {
+      if (chart) {
+        chart.destroy();
+      }
+      chart = generateChart(
+        canvasRef,
+        state.meterData,
+        state.isTiered,
+        formattedLabels(),
+        temperatureData(),
+        chart,
+      );
+    }
+  });
 
-      setState(
-        "totalGasCost",
-        gasCostData?.length > 0 ? gasCostData.reduce((a, b) => a + b, 0) : 0,
-      );
-      setState(
-        "totalElectricityCost",
-        electricCostArr?.length > 0
-          ? electricCostArr.reduce((a, b) => a + b, 0)
-          : 0,
-      );
+  // Cleanup chart on component unmount
+  onCleanup(() => {
+    if (chart) {
+      chart.destroy();
+      chart = null;
     }
   });
 
@@ -233,6 +103,121 @@ const ChartComponent = ({
       <canvas ref={canvasRef} id={CHART_ID}></canvas>
     </section>
   );
+};
+
+const generateChart = (
+  canvasRef: HTMLCanvasElement,
+  meterData: SmartMeterRow[],
+  isTiered: boolean,
+  formattedLabels: string[],
+  temperatureData: number[],
+  chart?: Chart | null,
+) => {
+  // Adjusted electric cost: only the electricity used for heating
+  const electricCostArr = isTiered
+    ? (meterData as TieredSmartMeterRow[]).map(getTierCost)
+    : (meterData as TOUSmartMeterRow[]).map(getTOUCost);
+  // const cumulativeElectricCost = electricCostArr.reduce((acc, val) => {
+  //   if (acc.length === 0) return [val];
+  //   acc.push(acc[acc.length - 1] + val);
+  //   return acc;
+  // }, [] as number[]);
+
+  // Cumulative gas cost (using heat delivered by heat pump with dynamic COP)
+  // const cumulativeGasCostArr = calculateCumulativeGasCost(
+  //   meterData,
+  //   weatherData,
+  //   isTiered,
+  // );
+
+  let cumulativeGas = 0;
+  const gasCostData = meterData.map((row, index) =>
+    getEstimatedGasCost(row, cumulativeGas, index, isTiered, temperatureData),
+  );
+
+  const chartConfig: ChartConfiguration<"line"> = {
+    ...LINE_CHART_CONFIG,
+    data: {
+      labels: formattedLabels,
+      datasets: [
+        {
+          label: "Temperature (°C)",
+          data: temperatureData,
+          yAxisID: "y",
+          borderColor: "#36a2eb",
+          backgroundColor: "#36a2eb33",
+          pointRadius: 1,
+          order: 1,
+        },
+        // {
+        //   label: "Heating kWh Delivered (COP-adjusted)",
+        //   data: heatingKWhArr,
+        //   yAxisID: "y2",
+        //   borderColor: "#ffa600",
+        //   backgroundColor: "#ffa60033",
+        //   pointRadius: 1,
+        //   order: 2,
+        // },
+        {
+          label: "Electricity Cost ($)",
+          data: electricCostArr,
+          yAxisID: "y1",
+          borderColor: "#4bc0c0",
+          backgroundColor: "#4bc0c033",
+          pointRadius: 1,
+          order: 3,
+        },
+        {
+          label: "Estimated Gas Cost ($)",
+          data: gasCostData,
+          yAxisID: "y1",
+          borderColor: "#ff6384",
+          backgroundColor: "#ff638433",
+          pointRadius: 1,
+          order: 4,
+        },
+        // {
+        //   label: "Cumulative Electric Cost ($)",
+        //   data: cumulativeElectricCost,
+        //   yAxisID: "y1",
+        //   borderColor: "#0057b8",
+        //   backgroundColor: "#0057b833",
+        //   borderDash: [5, 5],
+        //   pointRadius: 0,
+        //   order: 5,
+        // },
+        // {
+        //   label: "Cumulative Gas Cost ($)",
+        //   data: cumulativeGasCostArr,
+        //   yAxisID: "y1",
+        //   borderColor: "#b80000",
+        //   backgroundColor: "#b8000033",
+        //   borderDash: [5, 5],
+        //   pointRadius: 0,
+        //   order: 6,
+        // },
+      ],
+    },
+  };
+
+  if (chart) {
+    chart.destroy();
+  }
+
+  const newChart = new Chart(canvasRef, chartConfig);
+
+  setState(
+    "totalGasCost",
+    gasCostData?.length > 0 ? gasCostData.reduce((a, b) => a + b, 0) : 0,
+  );
+  setState(
+    "totalElectricityCost",
+    electricCostArr?.length > 0
+      ? electricCostArr.reduce((a, b) => a + b, 0)
+      : 0,
+  );
+
+  return newChart;
 };
 
 const getEstimatedGasCost = (
@@ -295,7 +280,7 @@ const getTierHeating = (tier1: number, tier2: number, baseline: number) => {
 const getTierConsumption = (row: TieredSmartMeterRow) => {
   const tier1 = row["[touInquiry_download_Total_Tier_1_Consumption]"];
   const tier2 = row["[touInquiry_download_Total_Tier_2_Consumption]"];
-  const baseline = BASE_ELECTRICITY_USAGE_KWH;
+  const baseline = state.baselineElectricityUsageKWh;
   const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2, baseline);
 
   return tier1Heating + tier2Heating;
@@ -304,7 +289,7 @@ const getTierConsumption = (row: TieredSmartMeterRow) => {
 const getTierCost = (row: TieredSmartMeterRow) => {
   const tier1 = row["[touInquiry_download_Total_Tier_1_Consumption]"];
   const tier2 = row["[touInquiry_download_Total_Tier_2_Consumption]"];
-  const baseline = BASE_ELECTRICITY_USAGE_KWH;
+  const baseline = state.baselineElectricityUsageKWh;
   const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2, baseline);
 
   return (
@@ -317,7 +302,7 @@ const getTOUConsumption = (row: TOUSmartMeterRow) => {
   const onPeak = row["Total On-Peak kwH Usage"] || 0;
   const midPeak = row["Total Mid-Peak kwH Usage"] || 0;
   const offPeak = row["Total Off-Peak kwH Usage *"] || 0;
-  const baseline = BASE_ELECTRICITY_USAGE_KWH;
+  const baseline = state.baselineElectricityUsageKWh;
 
   // Split baseline evenly across all periods with usage
   const periods = [onPeak, midPeak, offPeak];
@@ -335,7 +320,7 @@ const getTOUCost = (row: TOUSmartMeterRow) => {
   const onPeak = row["Total On-Peak kwH Usage"] || 0;
   const midPeak = row["Total Mid-Peak kwH Usage"] || 0;
   const offPeak = row["Total Off-Peak kwH Usage *"] || 0;
-  const baseline = BASE_ELECTRICITY_USAGE_KWH;
+  const baseline = state.baselineElectricityUsageKWh;
 
   // Split baseline evenly across all periods with usage
   const periods = [onPeak, midPeak, offPeak];
