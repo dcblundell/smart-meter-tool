@@ -339,42 +339,42 @@ const getTOUCost = (row: TOUSmartMeterRow) => {
 };
 
 // Calculate cumulative gas cost array (supports Tiered and TOU)
-const calculateCumulativeGasCost = (
-  meterData: SmartMeterRow[],
-  weatherData: typeof import("../../data/weather.json"),
-  isTiered: boolean,
-) => {
-  let cumulativeGas = 0;
-  let runningGasCost = 0;
-  const cumulativeGasCostArr: number[] = [];
+// const calculateCumulativeGasCost = (
+//   meterData: SmartMeterRow[],
+//   weatherData: typeof import("../../data/weather.json"),
+//   isTiered: boolean,
+// ) => {
+//   let cumulativeGas = 0;
+//   let runningGasCost = 0;
+//   const cumulativeGasCostArr: number[] = [];
 
-  meterData.forEach((row, i) => {
-    const electricUsed = isTiered
-      ? getTierConsumption(row as TieredSmartMeterRow)
-      : getTOUConsumption(row as TOUSmartMeterRow);
-    const tempC = weatherData.daily.apparent_temperature_mean[i];
-    const dynamicCOP = getDynamicCOP(tempC);
-    const heatDelivered = electricUsed * dynamicCOP;
-    // Convert heat delivered to gas m³
-    const gasM3 = heatDelivered / (GAS_KWH_PER_M3 * GAS_EFFICIENCY);
-    let remaining = gasM3;
-    let cost = 0;
-    let blockStart = cumulativeGas;
-    for (const block of GasPricingBlocks) {
-      const blockEnd = blockStart + block.limit;
-      const blockUsage = Math.min(remaining, blockEnd - blockStart);
-      if (blockUsage > 0) {
-        cost += blockUsage * block.price;
-        remaining -= blockUsage;
-        blockStart += blockUsage;
-      }
-      if (remaining <= 0) break;
-    }
-    cumulativeGas += gasM3;
-    runningGasCost += cost;
-    cumulativeGasCostArr.push(runningGasCost);
-  });
-  return cumulativeGasCostArr;
-};
+//   meterData.forEach((row, i) => {
+//     const electricUsed = isTiered
+//       ? getTierConsumption(row as TieredSmartMeterRow)
+//       : getTOUConsumption(row as TOUSmartMeterRow);
+//     const tempC = weatherData.daily.apparent_temperature_mean[i];
+//     const dynamicCOP = getDynamicCOP(tempC);
+//     const heatDelivered = electricUsed * dynamicCOP;
+//     // Convert heat delivered to gas m³
+//     const gasM3 = heatDelivered / (GAS_KWH_PER_M3 * GAS_EFFICIENCY);
+//     let remaining = gasM3;
+//     let cost = 0;
+//     let blockStart = cumulativeGas;
+//     for (const block of GasPricingBlocks) {
+//       const blockEnd = blockStart + block.limit;
+//       const blockUsage = Math.min(remaining, blockEnd - blockStart);
+//       if (blockUsage > 0) {
+//         cost += blockUsage * block.price;
+//         remaining -= blockUsage;
+//         blockStart += blockUsage;
+//       }
+//       if (remaining <= 0) break;
+//     }
+//     cumulativeGas += gasM3;
+//     runningGasCost += cost;
+//     cumulativeGasCostArr.push(runningGasCost);
+//   });
+//   return cumulativeGasCostArr;
+// };
 
 export default ChartComponent;
