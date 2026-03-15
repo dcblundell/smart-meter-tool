@@ -15,5 +15,6 @@ const clacks_opts = {
 };
 
 export default defineConfig({
+  base: "/smart-meter-tool/",
   plugins: [solid(), xClacksOverhead(clacks_opts)],
 });
