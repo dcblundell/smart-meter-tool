@@ -74,6 +74,9 @@ web_modules/
 .cache
 .parcel-cache
 
+# Vite build output
+dist
+
 # Next.js build output
 .next
 out
