@@ -14,7 +14,7 @@ import {
   TimeOfUse,
   TOURate,
 } from "../types/Electricity";
-import { state, setState } from "../store";
+import { state, setState, type WeatherData } from "../store";
 import getWeather from "../functions/getWeather";
 import { LINE_CHART_CONFIG } from "../definitions/chart";
 
@@ -27,14 +27,17 @@ const ChartComponent = () => {
   const [temperatureData, setTemperatureData] = createSignal<number[]>([]);
 
   onMount(async () => {
+    let weatherData: WeatherData | null = state.weatherData;
     // Fetch weather data if not already in store
-    if (!state.weatherData) {
-      const weatherData = await getWeather();
+    if (weatherData === null) {
+      console.log("get weather data", state.dateRange);
+      weatherData = await getWeather();
       setState("weatherData", weatherData);
     }
 
-    if (canvasRef && state.meterData !== null && state.weatherData !== null) {
-      const weatherData = state.weatherData;
+    console.log("onMount", canvasRef, state.meterData, weatherData);
+    if (canvasRef && state.meterData !== null && weatherData !== null) {
+      console.log("Initializing chart on mount with data");
       const labels = state.meterData.map((row) =>
         unixToTimezone(new Date(row["Reading Date"]).getTime() / 1000),
       );
@@ -61,8 +64,10 @@ const ChartComponent = () => {
       setTemperatureData(data);
 
       if (chart) {
+        console.log("Destroying existing chart before creating new one");
         chart.destroy();
       }
+      console.log("Initializing chart with data");
       chart = generateChart(
         canvasRef,
         state.meterData,
@@ -76,6 +81,31 @@ const ChartComponent = () => {
 
   createEffect(() => {
     if (canvasRef && state.weatherData && state.meterData) {
+      // Always recalculate labels and temperatureData when meterData or weatherData changes
+      const weatherData = state.weatherData;
+      const labels = state.meterData.map((row) =>
+        unixToTimezone(new Date(row["Reading Date"]).getTime() / 1000),
+      );
+      setFormattedLabels(labels);
+
+      const data = state.meterData.map((row) => {
+        const readingDate = new Date(row["Reading Date"]);
+        const closestTempIndex = weatherData.daily.time.reduce(
+          (nearest, current, i) => {
+            const timeDiff = Math.abs(
+              current.getTime() - readingDate.getTime(),
+            );
+            const nearestDiff = Math.abs(
+              weatherData.daily.time[nearest].getTime() - readingDate.getTime(),
+            );
+            return timeDiff < nearestDiff ? i : nearest;
+          },
+          0,
+        );
+        return weatherData.daily.apparent_temperature_mean[closestTempIndex];
+      });
+      setTemperatureData(data);
+
       if (chart) {
         chart.destroy();
       }
@@ -83,8 +113,8 @@ const ChartComponent = () => {
         canvasRef,
         state.meterData,
         state.isTiered,
-        formattedLabels(),
-        temperatureData(),
+        labels,
+        data,
         chart,
       );
     }
