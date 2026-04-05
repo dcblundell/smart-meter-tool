@@ -2,7 +2,6 @@
 // import gooseVueFile from "../data/119B5C-Vue_Energy_Monitor-1H.csv?raw";
 // import ukData from "../data/David-Jan-Mar-2025-SmartMeter454449-732258_2026-03-0712.42.54.csv?raw";
 // import ukData from "../data/David-Jan-Mar-2026-SmartMeter454449-732258_2026-03-1123.03.21.csv?raw";
-import ChartComponent from './components/Chart';
 import parseSmartMeterData from './functions/parseSmartMeterData';
 import { createSignal } from 'solid-js';
 // import parseVueEnergyMonitorData from "./functions/parseVueEnergyMonitorData";
@@ -10,6 +9,8 @@ import './styles/App.css';
 import { state, setState, resetChartState } from './store';
 import { formatPricing } from './functions/math';
 import validateUtilitiesKingstonData from './functions/validateUtilitiesKingstonData';
+import GasComparisonChart from './components/GasComparisonChart';
+import PricingComparisonChart from './components/PricingComparisonChart';
 
 function App() {
   const [error, setError] = createSignal<string | null>(null);
@@ -65,7 +66,7 @@ function App() {
               `${state.dateRange[0].toLocaleDateString()} => ${state.dateRange[1].toLocaleDateString()}`}
           </p>
 
-          <ChartComponent />
+          <GasComparisonChart />
 
           <p>🔥 Gas {formatPricing(state.totalGasCost)}</p>
           <p>⚡ Electricity {formatPricing(state.totalElectricityCost)}</p>
@@ -95,6 +96,8 @@ function App() {
               }
             />
           </label>
+
+          <PricingComparisonChart />
         </>
       )}
 

@@ -1,17 +1,17 @@
 import Chart, { type ChartConfiguration } from 'chart.js/auto';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
 import { type TOUSmartMeterRow, type TieredSmartMeterRow, type SmartMeterRow, READING_DATE_KEY, TOTAL_TIER_1_KEY, TOTAL_TIER_2_KEY } from '../types/SmartMeter';
-import { GAS_EFFICIENCY, GAS_KWH_PER_M3, GasPricingBlocks } from '../types/Gas';
+import { GAS_EFFICIENCY, GAS_KWH_PER_M3 } from '../types/Gas';
 import { formatDate, parseLocalDate } from '../functions/Time';
-import { TierRate, TierThreshold, TimeOfUse, TOURate } from '../types/Electricity';
+import { getTierRateForDate, getTOURateForDate, getGasRateForDate } from '../functions/getRatesForDate';
 import { state, setState } from '../store';
 import getWeather from '../functions/getWeather';
-import { LINE_CHART_CONFIG } from '../definitions/chart';
+import { COMPARE_GAS_CONFIG } from '../definitions/chart';
 import { getDynamicCOP } from '../types/HeatPumps';
 
 const CHART_ID = 'temp';
 
-const ChartComponent = () => {
+const GasComparisonChart = () => {
   let canvasRef: HTMLCanvasElement | undefined;
   let chart: Chart | null = null;
   const [formattedLabels, setFormattedLabels] = createSignal<string[]>([]);
@@ -106,9 +106,12 @@ const generateChart = (
   chart?: Chart | null,
 ) => {
   // Adjusted electric cost: only the electricity used for heating
-  const electricCostArr = isTiered
-    ? (meterData as TieredSmartMeterRow[]).map(getTierCost)
-    : (meterData as TOUSmartMeterRow[]).map(getTOUCost);
+  const electricCostArr = meterData.map((row) => {
+    const readingDate = parseLocalDate(row[READING_DATE_KEY]);
+    return isTiered
+      ? getTierCost(row as TieredSmartMeterRow, readingDate)
+      : getTOUCost(row as TOUSmartMeterRow, readingDate);
+  });
   // const cumulativeElectricCost = electricCostArr.reduce((acc, val) => {
   //   if (acc.length === 0) return [val];
   //   acc.push(acc[acc.length - 1] + val);
@@ -123,19 +126,20 @@ const generateChart = (
   // );
 
   const gasCostData = meterData.map((row, index) => {
+    const readingDate = parseLocalDate(row[READING_DATE_KEY]);
     const tempC = temperatureData[index];
     const kWhUsedForHeating = isTiered
       ? getTierConsumption(row as TieredSmartMeterRow)
       : getTOUConsumption(row as TOUSmartMeterRow);
     const heatDelivered = kWhUsedForHeating * getDynamicCOP(tempC);
     const gasM3 = heatDelivered / (GAS_EFFICIENCY * GAS_KWH_PER_M3);
-    const cost = getEstimatedGasCost(gasM3);
+    const cost = getEstimatedGasCost(gasM3, readingDate);
 
     return cost;
   });
 
   const chartConfig: ChartConfiguration<'line'> = {
-    ...LINE_CHART_CONFIG,
+    ...COMPARE_GAS_CONFIG,
     data: {
       labels: formattedLabels,
       datasets: [
@@ -216,8 +220,10 @@ const generateChart = (
 
 const getEstimatedGasCost = (
   gasM3: number,
+  readingDate: Date,
 ) => {
-  return gasM3 * GasPricingBlocks[0].price; // Simplified: using first block price for estimation
+  const pricingBlocks = getGasRateForDate(readingDate);
+  return gasM3 * pricingBlocks[0].price; // Simplified: using first block price for estimation
 };
 
 // Helper to calculate tier heating values
@@ -250,12 +256,13 @@ const getTierConsumption = (row: TieredSmartMeterRow) => {
   return tier1Heating + tier2Heating;
 };
 
-const getTierCost = (row: TieredSmartMeterRow) => {
+const getTierCost = (row: TieredSmartMeterRow, readingDate: Date) => {
   const tier1 = row[TOTAL_TIER_1_KEY];
   const tier2 = row[TOTAL_TIER_2_KEY];
   const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2);
+  const rates = getTierRateForDate(readingDate);
   return (
-    tier1Heating * TierRate[TierThreshold.TIER_1] + tier2Heating * TierRate[TierThreshold.TIER_2]
+    tier1Heating * rates.tier1 + tier2Heating * rates.tier2
   );
 };
 
@@ -277,7 +284,7 @@ const getTOUConsumption = (row: TOUSmartMeterRow) => {
   return onPeakHeating + midPeakHeating + offPeakHeating;
 };
 
-const getTOUCost = (row: TOUSmartMeterRow) => {
+const getTOUCost = (row: TOUSmartMeterRow, readingDate: Date) => {
   const onPeak = row['Total On-Peak kwH Usage'] || 0;
   const midPeak = row['Total Mid-Peak kwH Usage'] || 0;
   const offPeak = row['Total Off-Peak kwH Usage *'] || 0;
@@ -292,12 +299,16 @@ const getTOUCost = (row: TOUSmartMeterRow) => {
   let midPeakHeating = midPeak > 0 ? Math.max(0, midPeak - split) : 0;
   let offPeakHeating = offPeak > 0 ? Math.max(0, offPeak - split) : 0;
 
+  const rates = getTOURateForDate(readingDate);
   return (
-    onPeakHeating * TOURate[TimeOfUse.ON_PEAK] +
-    midPeakHeating * TOURate[TimeOfUse.MID_PEAK] +
-    offPeakHeating * TOURate[TimeOfUse.OFF_PEAK]
+    onPeakHeating * rates.onPeak +
+    midPeakHeating * rates.midPeak +
+    offPeakHeating * rates.offPeak
   );
 };
+
+// Export cost calculation functions for use in other components
+export { getTierCost, getTOUCost, getTierConsumption, getTOUConsumption };
 
 // Calculate cumulative gas cost array (supports Tiered and TOU)
 // const calculateCumulativeGasCost = (
@@ -338,4 +349,4 @@ const getTOUCost = (row: TOUSmartMeterRow) => {
 //   return cumulativeGasCostArr;
 // };
 
-export default ChartComponent;
+export default GasComparisonChart;
