@@ -11,9 +11,11 @@ import { formatPricing } from './functions/math';
 import validateUtilitiesKingstonData from './functions/validateUtilitiesKingstonData';
 import GasComparisonChart from './components/GasComparisonChart';
 import PricingComparisonChart from './components/PricingComparisonChart';
+import TemperatureComparisonChart from './components/TemperatureComparisonChart';
 
 function App() {
   const [error, setError] = createSignal<string | null>(null);
+  const [comparisonError, setComparisonError] = createSignal<string | null>(null);
   // Extracted CSV parsing logic
   // parseSmartMeterData(ukData);
 
@@ -28,6 +30,7 @@ function App() {
     <div>
       <h1>Utilities Kingston Meter Data</h1>
       <label for="file-upload">
+        Upload Baseline Data (CSV):
         <input
           id="file-upload"
           type="file"
@@ -56,21 +59,70 @@ function App() {
         </div>
       )}
 
+      <br />
+
+      <label for="comparison-file-upload">
+        Compare with (Optional):
+        <input
+          id="comparison-file-upload"
+          type="file"
+          accept=".csv,text/csv"
+          onInput={async (e) => {
+            setComparisonError(null);
+            const file = e.currentTarget.files?.[0];
+
+            if (!file) {
+              setState('comparisonMeterData', null);
+              setState('comparisonWeatherData', null);
+              setState('comparisonDateRange', null);
+              return;
+            }
+
+            const text = await file.text();
+
+            if (!(await validateUtilitiesKingstonData(text))) {
+              setComparisonError('Invalid CSV format');
+              return;
+            }
+
+            parseSmartMeterData(text, true);
+          }}
+        />
+      </label>
+      {comparisonError() && (
+        <div class="error" style={{ color: 'red' }}>
+          {comparisonError()}
+        </div>
+      )}
+
       {state.meterData === null ? (
         <p>Upload a CSV file to see the data</p>
       ) : (
         <>
           <p>
-            {state.isTiered ? 'Tiered billing' : 'TOU billing'} -
+            {state.isTiered ? 'Tiered billing' : 'TOU billing'} for{' '}
             {state.dateRange !== null &&
               `${state.dateRange[0].toLocaleDateString()} => ${state.dateRange[1].toLocaleDateString()}`}
           </p>
 
           <GasComparisonChart />
 
-          <p>🔥 Gas {formatPricing(state.totalGasCost)}</p>
-          <p>⚡ Electricity {formatPricing(state.totalElectricityCost)}</p>
-          <p>
+          <div class="info-box">
+          <p style={{
+            margin: '0.5rem 0',
+            'font-size': '1.1rem',
+            color: '#333',
+          }}>🔥 Gas {formatPricing(state.totalGasCost)}</p>
+          <p style={{
+            margin: '0.5rem 0',
+            'font-size': '1.1rem',
+            color: '#333',
+          }}>⚡ Electricity {formatPricing(state.totalElectricityCost)}</p>
+          <p style={{
+            margin: '0.5rem 0',
+            'font-size': '1.1rem',
+            color: '#333',
+          }}>
             Price difference:{' '}
             <span
               class={state.totalGasCost - state.totalElectricityCost > 0 ? 'positive' : 'negative'}
@@ -83,6 +135,7 @@ function App() {
               }
             </span>
           </p>
+          </div>
 
           <label>
             Baseline Electricity Usage (kWh/day):
@@ -98,6 +151,10 @@ function App() {
           </label>
 
           <PricingComparisonChart />
+
+          {state.comparisonMeterData !== null && state.comparisonWeatherData !== null && (
+            <TemperatureComparisonChart />
+          )}
         </>
       )}
 

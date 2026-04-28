@@ -69,7 +69,7 @@ const PricingComparisonChart = () => {
       <h2>Electricity Pricing Comparison</h2>
       <canvas ref={canvasRef} id={CHART_ID}></canvas>
       {savingsSummary() && (
-        <div style={{ 'margin-top': '1.5rem', 'margin-left': 'auto', 'margin-right': 'auto', 'padding': '1rem', 'background-color': '#f5f5f5', 'border-radius': '4px', 'max-width': '400px' }}>
+        <div class="info-box">
           <p style={{ 'margin': '0.5rem 0', 'font-size': '1.1rem', 'color': '#333' }}>
             <strong>Total Savings: </strong>
             ${Math.abs(savingsSummary()!.total).toFixed(2)} ({savingsSummary()!.percentage.toFixed(1)}%)

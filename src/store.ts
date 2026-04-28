@@ -17,6 +17,10 @@ interface AppState {
   weatherData: WeatherData | null;
   dateRange: [Date, Date] | null;
   baselineElectricityUsageKWh: number;
+  comparisonMeterData: SmartMeterRow[] | null;
+  comparisonWeatherData: WeatherData | null;
+  comparisonDateRange: [Date, Date] | null;
+  comparisonIsTiered: boolean;
 }
 
 const BASE_ELECTRICITY_USAGE_KWH = 20; // Baseline electricity usage (kWh) to attribute to non-heating uses per day
@@ -30,6 +34,10 @@ const [state, setState] = createStore<AppState>({
   weatherData: null,
   dateRange: null,
   baselineElectricityUsageKWh: BASE_ELECTRICITY_USAGE_KWH,
+  comparisonMeterData: null,
+  comparisonWeatherData: null,
+  comparisonDateRange: null,
+  comparisonIsTiered: false,
 });
 
 const resetChartState = () => {
@@ -41,6 +49,10 @@ const resetChartState = () => {
   setState('weatherData', null);
   setState('dateRange', null);
   setState('baselineElectricityUsageKWh', BASE_ELECTRICITY_USAGE_KWH);
+  setState('comparisonMeterData', null);
+  setState('comparisonWeatherData', null);
+  setState('comparisonDateRange', null);
+  setState('comparisonIsTiered', false);
 }
 
 export { state, setState, resetChartState };

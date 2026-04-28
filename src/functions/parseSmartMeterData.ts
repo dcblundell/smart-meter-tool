@@ -3,6 +3,7 @@ import { READING_DATE_KEY, TOTAL_TIER_1_KEY, type SmartMeterRow } from '../types
 import { TIERED_HEADER_MAP, TOU_HEADER_MAP } from '../types/UtilitiesKingston';
 import { setState } from '../store';
 import { parseLocalDate } from './Time';
+import getWeather from './getWeather';
 
 const AM_LABEL = 'am';
 const PM_LABEL = 'pm';
@@ -10,7 +11,7 @@ const AM_PM_REGEX = /(\d{1,2})\s*(am|pm)/i;
 const KWH_UNIT = 'kWh';
 const KWH_LABEL_BIT = 'KWH';
 
-const parseSmartMeterData = (csvFile: string): void => {
+const parseSmartMeterData = (csvFile: string, isComparison: boolean = false): void => {
   Papa.parse(csvFile, {
     header: true,
     dynamicTyping: true,
@@ -20,7 +21,7 @@ const parseSmartMeterData = (csvFile: string): void => {
       }
       return value;
     },
-    complete: (results: ParseResult<SmartMeterRow>) => {
+    complete: async (results: ParseResult<SmartMeterRow>) => {
       const isTieredFormat =
         results.meta.fields?.some((field) => field === TOTAL_TIER_1_KEY) ?? false;
 
@@ -47,16 +48,45 @@ const parseSmartMeterData = (csvFile: string): void => {
 
       const data: SmartMeterRow[] = results.data.filter((row) => row[READING_DATE_KEY]);
 
-      setState('isTiered', isTieredFormat);
-      setState('meterData', data);
-      setState('headers', formattedHeaders);
+      if (isComparison) {
+        setState('comparisonIsTiered', isTieredFormat);
+        setState('comparisonMeterData', data);
 
-      if (data.length > 0) {
-        const dates = data.map((row) => parseLocalDate(row[READING_DATE_KEY]));
-        const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-        const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+        if (data.length > 0) {
+          const dates = data.map((row) => parseLocalDate(row[READING_DATE_KEY]));
+          const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+          const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
 
-        setState('dateRange', [minDate, maxDate]);
+          setState('comparisonDateRange', [minDate, maxDate]);
+
+          // Fetch weather data for comparison period
+          try {
+            const weatherData = await getWeather([minDate, maxDate]);
+            setState('comparisonWeatherData', weatherData);
+          } catch (error) {
+            console.error('Failed to fetch weather data for comparison:', error);
+          }
+        }
+      } else {
+        setState('isTiered', isTieredFormat);
+        setState('meterData', data);
+        setState('headers', formattedHeaders);
+
+        if (data.length > 0) {
+          const dates = data.map((row) => parseLocalDate(row[READING_DATE_KEY]));
+          const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+          const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+
+          setState('dateRange', [minDate, maxDate]);
+
+          // Fetch weather data for main period
+          try {
+            const weatherData = await getWeather([minDate, maxDate]);
+            setState('weatherData', weatherData);
+          } catch (error) {
+            console.error('Failed to fetch weather data:', error);
+          }
+        }
       }
     },
   });
