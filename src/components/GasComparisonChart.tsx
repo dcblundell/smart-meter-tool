@@ -1,85 +1,94 @@
 import Chart, { type ChartConfiguration } from "chart.js/auto";
-import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
-import type {
-  TOUSmartMeterRow,
-  TieredSmartMeterRow,
-  SmartMeterRow,
-} from "../types/SmartMeter";
-import { GAS_EFFICIENCY, GAS_KWH_PER_M3, GasPricingBlocks } from "../types/Gas";
-import { getDynamicCOP } from "../types/HeatPumps";
-import { unixToTimezone } from "../functions/Time";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import {
-  TierRate,
-  TierThreshold,
-  TimeOfUse,
-  TOURate,
-} from "../types/Electricity";
-import { state, setState, type WeatherData } from "../store";
+  type TOUSmartMeterRow,
+  type TieredSmartMeterRow,
+  type SmartMeterRow,
+  READING_DATE_KEY,
+  TOTAL_TIER_1_KEY,
+  TOTAL_TIER_2_KEY,
+} from "../types/SmartMeter";
+import { GAS_EFFICIENCY, GAS_KWH_PER_M3 } from "../types/Gas";
+import { formatDate, parseLocalDate } from "../functions/Time";
+import {
+  getTierRateForDate,
+  getTOURateForDate,
+  getGasRateForDate,
+} from "../functions/getRatesForDate";
+import { state, setState } from "../store";
 import getWeather from "../functions/getWeather";
-import { LINE_CHART_CONFIG } from "../definitions/chart";
+import { COMPARE_GAS_CONFIG } from "../definitions/chart";
+import { getDynamicCOP } from "../types/HeatPumps";
 
 const CHART_ID = "temp";
 
-const ChartComponent = () => {
+const GasComparisonChart = () => {
   let canvasRef: HTMLCanvasElement | undefined;
   let chart: Chart | null = null;
   const [formattedLabels, setFormattedLabels] = createSignal<string[]>([]);
   const [temperatureData, setTemperatureData] = createSignal<number[]>([]);
 
-  onMount(async () => {
-    let weatherData: WeatherData | null = state.weatherData;
-    // Fetch weather data if not already in store
-    if (weatherData === null) {
-      console.log("get weather data", state.dateRange);
-      weatherData = await getWeather();
-      setState("weatherData", weatherData);
-    }
+  createEffect(async () => {
+    // @ts-ignore - triggers the effect when baselineElectricityUsageKWh changes, refactor later
+    const baseline = state.baselineElectricityUsageKWh;
 
-    console.log("onMount", canvasRef, state.meterData, weatherData);
-    if (canvasRef && state.meterData !== null && weatherData !== null) {
-      console.log("Initializing chart on mount with data");
-      const labels = state.meterData.map((row) =>
-        unixToTimezone(new Date(row["Reading Date"]).getTime() / 1000),
-      );
-      setFormattedLabels(labels);
+    if (!state.meterData) return;
+
+    let weatherData = state.weatherData;
+
+    if (state.dateRange) {
+      weatherData = await getWeather(state.dateRange);
+      setState("weatherData", weatherData);
+
+      if (
+        weatherData === null ||
+        !weatherData?.daily ||
+        !weatherData.daily.time ||
+        !weatherData.daily.apparent_temperature_mean
+      ) {
+        console.error("Failed to fetch weather data");
+        return;
+      }
 
       const data = state.meterData.map((row) => {
-        const readingDate = new Date(row["Reading Date"]);
-        const closestTempIndex = weatherData.daily.time.reduce(
+        const readingDate = new Date(row[READING_DATE_KEY]);
+        const closestTempIndex = weatherData?.daily.time.reduce(
           (nearest, current, i) => {
-            const timeDiff = Math.abs(
-              current.getTime() - readingDate.getTime(),
-            );
-            const nearestDiff = Math.abs(
-              weatherData.daily.time[nearest].getTime() - readingDate.getTime(),
-            );
+            const readingDateTime = readingDate.getTime();
+            const currentTime = current.getTime();
+            const timeDiff = Math.abs(currentTime - readingDateTime);
+            const nearestTime = weatherData?.daily.time[nearest].getTime();
+
+            if (nearestTime === undefined) return i;
+
+            const nearestDiff = Math.abs(nearestTime - readingDateTime);
             return timeDiff < nearestDiff ? i : nearest;
           },
           0,
         );
 
-        return weatherData.daily.apparent_temperature_mean[closestTempIndex];
+        if (
+          typeof closestTempIndex === "number" &&
+          Array.isArray(weatherData?.daily.apparent_temperature_mean) &&
+          weatherData?.daily.apparent_temperature_mean[closestTempIndex] !==
+            undefined
+        ) {
+          return weatherData.daily.apparent_temperature_mean[closestTempIndex];
+        }
+        return null;
       });
 
-      setTemperatureData(data);
-
-      if (chart) {
-        console.log("Destroying existing chart before creating new one");
-        chart.destroy();
+      if (data) {
+        setTemperatureData(data.filter((v): v is number => v !== null));
       }
-      console.log("Initializing chart with data");
-      chart = generateChart(
-        canvasRef,
-        state.meterData,
-        state.isTiered,
-        labels,
-        data,
-        chart,
-      );
     }
-  });
 
-  createEffect(() => {
+    const labels = state.meterData.map((row) =>
+      formatDate(parseLocalDate(row[READING_DATE_KEY])),
+    );
+
+    setFormattedLabels(labels);
+
     if (canvasRef && state.weatherData && state.meterData) {
       // Always recalculate labels and temperatureData when meterData or weatherData changes
       const weatherData = state.weatherData;
@@ -144,9 +153,12 @@ const generateChart = (
   chart?: Chart | null,
 ) => {
   // Adjusted electric cost: only the electricity used for heating
-  const electricCostArr = isTiered
-    ? (meterData as TieredSmartMeterRow[]).map(getTierCost)
-    : (meterData as TOUSmartMeterRow[]).map(getTOUCost);
+  const electricCostArr = meterData.map((row) => {
+    const readingDate = parseLocalDate(row[READING_DATE_KEY]);
+    return isTiered
+      ? getTierCost(row as TieredSmartMeterRow, readingDate)
+      : getTOUCost(row as TOUSmartMeterRow, readingDate);
+  });
   // const cumulativeElectricCost = electricCostArr.reduce((acc, val) => {
   //   if (acc.length === 0) return [val];
   //   acc.push(acc[acc.length - 1] + val);
@@ -160,13 +172,21 @@ const generateChart = (
   //   isTiered,
   // );
 
-  let cumulativeGas = 0;
-  const gasCostData = meterData.map((row, index) =>
-    getEstimatedGasCost(row, cumulativeGas, index, isTiered, temperatureData),
-  );
+  const gasCostData = meterData.map((row, index) => {
+    const readingDate = parseLocalDate(row[READING_DATE_KEY]);
+    const tempC = temperatureData[index];
+    const kWhUsedForHeating = isTiered
+      ? getTierConsumption(row as TieredSmartMeterRow)
+      : getTOUConsumption(row as TOUSmartMeterRow);
+    const heatDelivered = kWhUsedForHeating * getDynamicCOP(tempC);
+    const gasM3 = heatDelivered / (GAS_EFFICIENCY * GAS_KWH_PER_M3);
+    const cost = getEstimatedGasCost(gasM3, readingDate);
+
+    return cost;
+  });
 
   const chartConfig: ChartConfiguration<"line"> = {
-    ...LINE_CHART_CONFIG,
+    ...COMPARE_GAS_CONFIG,
     data: {
       labels: formattedLabels,
       datasets: [
@@ -250,43 +270,14 @@ const generateChart = (
   return newChart;
 };
 
-const getEstimatedGasCost = (
-  row: SmartMeterRow,
-  cumulativeGas: number,
-  i: number,
-  isTiered: boolean,
-  temperatureData: number[],
-) => {
-  const electricUsed = isTiered
-    ? getTierConsumption(row as TieredSmartMeterRow)
-    : getTOUConsumption(row as TOUSmartMeterRow);
-  const tempC = temperatureData[i];
-  const dynamicCOP = getDynamicCOP(tempC);
-  const heatDelivered = electricUsed * dynamicCOP;
-  const gasM3 = heatDelivered / (GAS_KWH_PER_M3 * GAS_EFFICIENCY);
-
-  let remaining = gasM3;
-  let cost = 0;
-  let blockStart = cumulativeGas;
-
-  for (const block of GasPricingBlocks) {
-    const blockEnd = blockStart + block.limit;
-    const blockUsage = Math.min(remaining, blockEnd - blockStart);
-    if (blockUsage > 0) {
-      cost += blockUsage * block.price;
-      remaining -= blockUsage;
-      blockStart += blockUsage;
-    }
-    if (remaining <= 0) break;
-  }
-
-  cumulativeGas += gasM3;
-
-  return cost;
+const getEstimatedGasCost = (gasM3: number, readingDate: Date) => {
+  const pricingBlocks = getGasRateForDate(readingDate);
+  return gasM3 * pricingBlocks[0].price; // Simplified: using first block price for estimation
 };
 
 // Helper to calculate tier heating values
-const getTierHeating = (tier1: number, tier2: number, baseline: number) => {
+const getTierHeating = (tier1: number, tier2: number) => {
+  const baseline = state.baselineElectricityUsageKWh;
   let tier1Heating = 0;
   let tier2Heating = 0;
   if (tier1 > 0 && tier2 > 0) {
@@ -308,24 +299,18 @@ const getTierHeating = (tier1: number, tier2: number, baseline: number) => {
 };
 
 const getTierConsumption = (row: TieredSmartMeterRow) => {
-  const tier1 = row["[touInquiry_download_Total_Tier_1_Consumption]"];
-  const tier2 = row["[touInquiry_download_Total_Tier_2_Consumption]"];
-  const baseline = state.baselineElectricityUsageKWh;
-  const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2, baseline);
-
+  const tier1 = row[TOTAL_TIER_1_KEY];
+  const tier2 = row[TOTAL_TIER_2_KEY];
+  const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2);
   return tier1Heating + tier2Heating;
 };
 
-const getTierCost = (row: TieredSmartMeterRow) => {
-  const tier1 = row["[touInquiry_download_Total_Tier_1_Consumption]"];
-  const tier2 = row["[touInquiry_download_Total_Tier_2_Consumption]"];
-  const baseline = state.baselineElectricityUsageKWh;
-  const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2, baseline);
-
-  return (
-    tier1Heating * TierRate[TierThreshold.TIER_1] +
-    tier2Heating * TierRate[TierThreshold.TIER_2]
-  );
+const getTierCost = (row: TieredSmartMeterRow, readingDate: Date) => {
+  const tier1 = row[TOTAL_TIER_1_KEY];
+  const tier2 = row[TOTAL_TIER_2_KEY];
+  const { tier1Heating, tier2Heating } = getTierHeating(tier1, tier2);
+  const rates = getTierRateForDate(readingDate);
+  return tier1Heating * rates.tier1 + tier2Heating * rates.tier2;
 };
 
 const getTOUConsumption = (row: TOUSmartMeterRow) => {
@@ -346,7 +331,7 @@ const getTOUConsumption = (row: TOUSmartMeterRow) => {
   return onPeakHeating + midPeakHeating + offPeakHeating;
 };
 
-const getTOUCost = (row: TOUSmartMeterRow) => {
+const getTOUCost = (row: TOUSmartMeterRow, readingDate: Date) => {
   const onPeak = row["Total On-Peak kwH Usage"] || 0;
   const midPeak = row["Total Mid-Peak kwH Usage"] || 0;
   const offPeak = row["Total Off-Peak kwH Usage *"] || 0;
@@ -361,12 +346,16 @@ const getTOUCost = (row: TOUSmartMeterRow) => {
   let midPeakHeating = midPeak > 0 ? Math.max(0, midPeak - split) : 0;
   let offPeakHeating = offPeak > 0 ? Math.max(0, offPeak - split) : 0;
 
+  const rates = getTOURateForDate(readingDate);
   return (
-    onPeakHeating * TOURate[TimeOfUse.ON_PEAK] +
-    midPeakHeating * TOURate[TimeOfUse.MID_PEAK] +
-    offPeakHeating * TOURate[TimeOfUse.OFF_PEAK]
+    onPeakHeating * rates.onPeak +
+    midPeakHeating * rates.midPeak +
+    offPeakHeating * rates.offPeak
   );
 };
+
+// Export cost calculation functions for use in other components
+export { getTierCost, getTOUCost, getTierConsumption, getTOUConsumption };
 
 // Calculate cumulative gas cost array (supports Tiered and TOU)
 // const calculateCumulativeGasCost = (
@@ -379,12 +368,12 @@ const getTOUCost = (row: TOUSmartMeterRow) => {
 //   const cumulativeGasCostArr: number[] = [];
 
 //   meterData.forEach((row, i) => {
-//     const electricUsed = isTiered
+//     const kWhUsedForHeating = isTiered
 //       ? getTierConsumption(row as TieredSmartMeterRow)
 //       : getTOUConsumption(row as TOUSmartMeterRow);
 //     const tempC = weatherData.daily.apparent_temperature_mean[i];
 //     const dynamicCOP = getDynamicCOP(tempC);
-//     const heatDelivered = electricUsed * dynamicCOP;
+//     const heatDelivered = kWhUsedForHeating * dynamicCOP;
 //     // Convert heat delivered to gas m³
 //     const gasM3 = heatDelivered / (GAS_KWH_PER_M3 * GAS_EFFICIENCY);
 //     let remaining = gasM3;
@@ -407,4 +396,4 @@ const getTOUCost = (row: TOUSmartMeterRow) => {
 //   return cumulativeGasCostArr;
 // };
 
-export default ChartComponent;
+export default GasComparisonChart;

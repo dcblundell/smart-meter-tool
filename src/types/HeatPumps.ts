@@ -9,6 +9,10 @@ export const COP_POINTS = [
   { tempC: 15.6, cop: 4.5 }, // 60°F
 ];
 
+// BOVA-36HDN1-M20G
+// https://www.ahridirectory.org/details/99/202868496
+// 2.02 at -15°C (5°F)
+
 // https://moovair.com/wp-content/uploads/SUB_M_S24FMA_2.pdf
 // 1.41 at -30°C (-22°F)
 // 1.91 at -15°C (5°F)

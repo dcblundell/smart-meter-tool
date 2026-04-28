@@ -74,6 +74,9 @@ web_modules/
 .cache
 .parcel-cache
 
+# Vite build output
+dist
+
 # Next.js build output
 .next
 out
@@ -139,3 +142,6 @@ vite.config.ts.timestamp-*
 
 # OS
 data/.~lock*
+.prettierrc
+.prettierignore
+.DS_Store

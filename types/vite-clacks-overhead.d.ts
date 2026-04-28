@@ -1,4 +1,4 @@
-declare module "vite-clacks-overhead" {
+declare module 'vite-clacks-overhead' {
   interface ClacksOptions {
     memoriam?: string;
     names?: string[];
