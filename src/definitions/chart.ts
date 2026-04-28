@@ -26,8 +26,8 @@ const LINE_CHART_CONFIG: Omit<ChartConfiguration<'line'>, 'data'> = {
       axis: 'x',
       intersect: false,
     },
-  }
-}
+  },
+};
 
 export const COMPARE_GAS_CONFIG: Omit<ChartConfiguration<'line'>, 'data'> = {
   ...LINE_CHART_CONFIG,

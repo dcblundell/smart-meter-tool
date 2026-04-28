@@ -73,7 +73,7 @@ export const gasRateSchedules = new Map<Date, GasRate>([
         nonResidential: 87.88,
       },
     },
-  ]
+  ],
 ]);
 
 export const GAS_KWH_PER_M3 = 10.55;

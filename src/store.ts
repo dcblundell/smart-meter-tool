@@ -53,7 +53,7 @@ const resetChartState = () => {
   setState('comparisonWeatherData', null);
   setState('comparisonDateRange', null);
   setState('comparisonIsTiered', false);
-}
+};
 
 export { state, setState, resetChartState };
 export type { WeatherData };

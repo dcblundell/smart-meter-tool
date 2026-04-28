@@ -1,4 +1,4 @@
-// Parse as local date to avoid timezone issues 
+// Parse as local date to avoid timezone issues
 // TODO: Use Temporal or dayjs?
 export const parseLocalDate = (dateStr: string) => {
   const [year, month, day] = dateStr.split('-').map(Number);

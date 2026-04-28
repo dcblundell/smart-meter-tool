@@ -1,28 +1,24 @@
+import { For, Show } from 'solid-js';
 import { state } from '../store';
 
 const Table = () => {
-  return state?.meterData && state.meterData.length > 0 && state.headers.length > 0 ? (
-    <table>
-      <thead>
-        <tr>
-          {state.headers.map((h) => (
-            <th>{h}</th>
-          ))}
-        </tr>
-      </thead>
-
-      <tbody>
-        {state?.meterData?.map((row) => (
+  return (
+    <Show
+      when={state?.meterData && state.meterData.length > 0 && state.headers.length > 0}
+      fallback={<p>{`Loading...`}</p>}
+    >
+      <table>
+        <thead>
           <tr>
-            {Object.values(row).map((value) => (
-              <td>{value}</td>
-            ))}
+            <For each={state.headers}>{(h) => <th>{h}</th>}</For>
           </tr>
-        ))}
-      </tbody>
-    </table>
-  ) : (
-    <p>{`Loading...`}</p>
+        </thead>
+
+        <tbody>
+          <For each={state?.meterData}>{(row) => <tr><For each={Object.values(row)}>{(value) => <td>{value}</td>}</For></tr>}</For>
+        </tbody>
+      </table>
+    </Show>
   );
 };
 

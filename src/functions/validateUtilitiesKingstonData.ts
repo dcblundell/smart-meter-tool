@@ -1,4 +1,4 @@
-import { READING_DATE_KEY, TOTAL_TIER_1_KEY } from "../types/SmartMeter";
+import { READING_DATE_KEY, TOTAL_TIER_1_KEY } from '../types/SmartMeter';
 
 const validateUtilitiesKingstonData = async (text: string): Promise<boolean> => {
   const firstLine = text.split(/\r?\n/)[0];

@@ -1,4 +1,10 @@
-import { type TieredSmartMeterRow, type TOUSmartMeterRow, type SmartMeterRow, TOTAL_TIER_1_KEY, TOTAL_TIER_2_KEY } from '../types/SmartMeter';
+import {
+  type TieredSmartMeterRow,
+  type TOUSmartMeterRow,
+  type SmartMeterRow,
+  TOTAL_TIER_1_KEY,
+  TOTAL_TIER_2_KEY,
+} from '../types/SmartMeter';
 import { getTierRateForDate, getTOURateForDate } from './getRatesForDate';
 import type { Season, DayType } from '../types/Electricity';
 import { SUMMER_TIER_THRESHOLD, WINTER_TIER_THRESHOLD } from '../types/Electricity';
@@ -26,7 +32,7 @@ export function getDayType(date: Date): DayType {
 /**
  * Determine which TOU period an hour of day falls into.
  * Based on Ontario's TOU time brackets.
- * 
+ *
  * Hour is expected to be in 12-hour format (1-12 AM/PM)
  */
 export function getTOUPeriodForHour(
@@ -68,7 +74,7 @@ export function getTOUPeriodForHour(
  * Calculate alternative pricing for a meter row.
  * If current method is Tiered, calculate TOU cost.
  * If current method is TOU, calculate Tiered cost.
- * 
+ *
  * @param cumulativeMonthlyUsage Optional cumulative usage for the month (used for tier allocation when converting TOU to Tiered)
  */
 export function calculateAlternativePricingCost(
@@ -80,10 +86,19 @@ export function calculateAlternativePricingCost(
 ): number {
   if (isTiered) {
     // Current is Tiered, calculate TOU alternative
-    return calculateTOUCostFromTieredData(row as TieredSmartMeterRow, readingDate, baselineElectricityUsageKWh);
+    return calculateTOUCostFromTieredData(
+      row as TieredSmartMeterRow,
+      readingDate,
+      baselineElectricityUsageKWh,
+    );
   } else {
     // Current is TOU, calculate Tiered alternative using cumulative tracking
-    return calculateTieredCostFromTOUDataWithCumulative(row as TOUSmartMeterRow, readingDate, baselineElectricityUsageKWh, cumulativeMonthlyUsage);
+    return calculateTieredCostFromTOUDataWithCumulative(
+      row as TOUSmartMeterRow,
+      readingDate,
+      baselineElectricityUsageKWh,
+      cumulativeMonthlyUsage,
+    );
   }
 }
 
@@ -95,9 +110,9 @@ export function calculateAlternativePricingCost(
  */
 function extractHourlyUsage(row: TieredSmartMeterRow): number[] {
   const hourly: number[] = [];
-  
+
   // Helper to parse values that might have " kWh" or other units appended
-  const parseValue = (val: any): number => {
+  const parseValue = (val: number | string): number => {
     if (typeof val === 'number') return val;
     if (typeof val === 'string') {
       // Remove " kWh" suffix or any other non-numeric suffix
@@ -107,38 +122,55 @@ function extractHourlyUsage(row: TieredSmartMeterRow): number[] {
     }
     return 0;
   };
-  
+
   // Morning hours: 1am-12pm (columns labeled "1 am KWH Usage" through "12 pm KWH Usage")
   const morningLabels = [
-    '1 am KWH Usage', '2 am KWH Usage', '3 am KWH Usage', '4 am KWH Usage',
-    '5 am KWH Usage', '6 am KWH Usage', '7 am KWH Usage', '8 am KWH Usage',
-    '9 am KWH Usage', '10 am KWH Usage', '11 am KWH Usage', '12 pm KWH Usage',
+    '1 am KWH Usage',
+    '2 am KWH Usage',
+    '3 am KWH Usage',
+    '4 am KWH Usage',
+    '5 am KWH Usage',
+    '6 am KWH Usage',
+    '7 am KWH Usage',
+    '8 am KWH Usage',
+    '9 am KWH Usage',
+    '10 am KWH Usage',
+    '11 am KWH Usage',
+    '12 pm KWH Usage',
   ];
-  
+
   // Afternoon/evening hours: 1pm-11pm (columns labeled "1 pm KWH Usage" through "11 pm KWH Usage")
   const afternoonLabels = [
-    '1 pm KWH Usage', '2 pm KWH Usage', '3 pm KWH Usage', '4 pm KWH Usage',
-    '5 pm KWH Usage', '6 pm KWH Usage', '7 pm KWH Usage', '8 pm KWH Usage',
-    '9 pm KWH Usage', '10 pm KWH Usage', '11 pm KWH Usage',
+    '1 pm KWH Usage',
+    '2 pm KWH Usage',
+    '3 pm KWH Usage',
+    '4 pm KWH Usage',
+    '5 pm KWH Usage',
+    '6 pm KWH Usage',
+    '7 pm KWH Usage',
+    '8 pm KWH Usage',
+    '9 pm KWH Usage',
+    '10 pm KWH Usage',
+    '11 pm KWH Usage',
   ];
-  
+
   // Extract morning/noon hours (1am-12pm)
   for (const label of morningLabels) {
     const value = parseValue(row[label as keyof TieredSmartMeterRow]);
     hourly.push(value);
   }
-  
+
   // Extract afternoon/evening hours (1pm-11pm)
   for (const label of afternoonLabels) {
     const value = parseValue(row[label as keyof TieredSmartMeterRow]);
     hourly.push(value);
   }
-  
+
   // The midnight hour (12am/00:00) is the duplicate "12 pm KWH Usage" in CSV
   // which the parser renamed to '12 pm KWH Usage_1'
-  const midnightValue = parseValue((row as any)['12 pm KWH Usage_1']);
+  const midnightValue = parseValue(row['12 pm KWH Usage_1']);
   hourly.push(midnightValue);
-  
+
   return hourly;
 }
 
@@ -161,22 +193,24 @@ function calculateTOUCostFromTieredData(
 
   // Extract ALL 24 hours of usage
   const hourlyUsage = extractHourlyUsage(row);
-  
+
   // DEBUG: Log if extraction yields data
   const totalExtracted = hourlyUsage.reduce((a, b) => a + b, 0);
-  if (totalExtracted === 0 && parseFloat(row[TOTAL_TIER_1_KEY] as any) > 0) {
-    console.warn(`[DEBUG] Hourly extraction returned 0 kWh but CSV shows ${row[TOTAL_TIER_1_KEY]} kWh tier1 + ${row[TOTAL_TIER_2_KEY]} kWh tier2`);
+  if (totalExtracted === 0 && row[TOTAL_TIER_1_KEY] > 0) {
+    console.warn(
+      `[DEBUG] Hourly extraction returned 0 kWh but CSV shows ${row[TOTAL_TIER_1_KEY]} kWh tier1 + ${row[TOTAL_TIER_2_KEY]} kWh tier2`,
+    );
     console.warn(`[DEBUG] Row keys:`, Object.keys(row).slice(0, 30));
   }
 
   // Process each hour and classify into TOU period
   for (let i = 0; i < hourlyUsage.length; i++) {
     const usage = hourlyUsage[i];
-    
+
     // Convert array index to hour in 12-hour format
     const hour = i < 12 ? i + 1 : i - 11; // hours 1-12 for indices 0-11, then 1-12 for 12-23
     const ampm = i < 12 ? ('am' as const) : ('pm' as const);
-    
+
     const period = getTOUPeriodForHour(hour, ampm, season, dayType);
 
     if (period === 'on-peak') {
@@ -190,7 +224,7 @@ function calculateTOUCostFromTieredData(
 
   // Apply baseline adjustment: distribute proportionally to actual TOU period usage
   const totalUsage = onPeakUsage + midPeakUsage + offPeakUsage;
-  
+
   let onPeakHeating = onPeakUsage;
   let midPeakHeating = midPeakUsage;
   let offPeakHeating = offPeakUsage;
@@ -206,13 +240,15 @@ function calculateTOUCostFromTieredData(
     offPeakHeating = Math.max(0, offPeakUsage - baselineOffPeak);
   }
 
-  const cost = onPeakHeating * rates.onPeak +
-    midPeakHeating * rates.midPeak +
-    offPeakHeating * rates.offPeak;
-  
+  const cost =
+    onPeakHeating * rates.onPeak + midPeakHeating * rates.midPeak + offPeakHeating * rates.offPeak;
+
   // DEBUG
   if (cost === 0 && totalUsage > 0) {
-    console.warn(`[DEBUG] TOU calculation returned $0 but totalUsage=${totalUsage}, baseline=${baselineElectricityUsageKWh}, rates=`, rates);
+    console.warn(
+      `[DEBUG] TOU calculation returned $0 but totalUsage=${totalUsage}, baseline=${baselineElectricityUsageKWh}, rates=`,
+      rates,
+    );
   }
 
   return cost;
@@ -267,8 +303,5 @@ function calculateTieredCostFromTOUDataWithCumulative(
   const tier1Heating = Math.max(0, tier1Usage - split);
   const tier2Heating = Math.max(0, tier2Usage - split);
 
-  return (
-    tier1Heating * rates.tier1 +
-    tier2Heating * rates.tier2
-  );
+  return tier1Heating * rates.tier1 + tier2Heating * rates.tier2;
 }

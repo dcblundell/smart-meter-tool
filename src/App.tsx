@@ -108,33 +108,45 @@ function App() {
           <GasComparisonChart />
 
           <div class="info-box">
-          <p style={{
-            margin: '0.5rem 0',
-            'font-size': '1.1rem',
-            color: '#333',
-          }}>🔥 Gas {formatPricing(state.totalGasCost)}</p>
-          <p style={{
-            margin: '0.5rem 0',
-            'font-size': '1.1rem',
-            color: '#333',
-          }}>⚡ Electricity {formatPricing(state.totalElectricityCost)}</p>
-          <p style={{
-            margin: '0.5rem 0',
-            'font-size': '1.1rem',
-            color: '#333',
-          }}>
-            Price difference:{' '}
-            <span
-              class={state.totalGasCost - state.totalElectricityCost > 0 ? 'positive' : 'negative'}
+            <p
+              style={{
+                margin: '0.5rem 0',
+                'font-size': '1.1rem',
+                color: '#333',
+              }}
             >
-              {formatPricing(state.totalGasCost - state.totalElectricityCost)}{' '}
-              {
-                state.totalGasCost - state.totalElectricityCost > 0
-                  ? '👍' // Gas more expensive: positive (fire + thumbs up)
-                  : '👎' // Electricity more expensive: negative (lightning + thumbs down)
-              }
-            </span>
-          </p>
+              🔥 Gas {formatPricing(state.totalGasCost)}
+            </p>
+            <p
+              style={{
+                margin: '0.5rem 0',
+                'font-size': '1.1rem',
+                color: '#333',
+              }}
+            >
+              ⚡ Electricity {formatPricing(state.totalElectricityCost)}
+            </p>
+            <p
+              style={{
+                margin: '0.5rem 0',
+                'font-size': '1.1rem',
+                color: '#333',
+              }}
+            >
+              Price difference:{' '}
+              <span
+                class={
+                  state.totalGasCost - state.totalElectricityCost > 0 ? 'positive' : 'negative'
+                }
+              >
+                {formatPricing(state.totalGasCost - state.totalElectricityCost)}{' '}
+                {
+                  state.totalGasCost - state.totalElectricityCost > 0
+                    ? '👍' // Gas more expensive: positive (fire + thumbs up)
+                    : '👎' // Electricity more expensive: negative (lightning + thumbs down)
+                }
+              </span>
+            </p>
           </div>
 
           <label>

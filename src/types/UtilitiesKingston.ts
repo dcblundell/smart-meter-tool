@@ -1,4 +1,4 @@
-import { READING_DATE_KEY, TOTAL_TIER_1_KEY, TOTAL_TIER_2_KEY } from "./SmartMeter";
+import { READING_DATE_KEY, TOTAL_TIER_1_KEY, TOTAL_TIER_2_KEY } from './SmartMeter';
 
 export const TIERED_HEADER_MAP: Record<string, string> = {
   [READING_DATE_KEY]: 'Date',

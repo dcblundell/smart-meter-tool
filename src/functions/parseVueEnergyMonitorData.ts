@@ -1,6 +1,12 @@
 import Papa, { type ParseResult } from 'papaparse';
 import type { VueEnergyMonitorRow } from '../types/VueEnergy';
-import { READING_DATE_KEY, TOTAL_TIER_1_KEY, TOTAL_TIER_2_KEY, type SmartMeterRow, type TieredSmartMeterRow } from '../types/SmartMeter';
+import {
+  READING_DATE_KEY,
+  TOTAL_TIER_1_KEY,
+  TOTAL_TIER_2_KEY,
+  type SmartMeterRow,
+  type TieredSmartMeterRow,
+} from '../types/SmartMeter';
 import { TIERED_HEADER_MAP } from '../types/UtilitiesKingston';
 
 const parseVueEnergyMonitorData = (
