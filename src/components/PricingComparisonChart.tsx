@@ -1,9 +1,12 @@
 import Chart, { type ChartConfiguration } from 'chart.js/auto';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
-import { type TieredSmartMeterRow, type TOUSmartMeterRow, type SmartMeterRow } from '../types/SmartMeter';
+import {
+  type TieredSmartMeterRow,
+  type TOUSmartMeterRow,
+  type SmartMeterRow,
+} from '../types/SmartMeter';
 import { formatDate, parseLocalDate } from '../functions/Time';
 import { state } from '../store';
-import getWeather from '../functions/getWeather';
 import { COMPARE_RATES_CONFIG } from '../definitions/chart';
 import { calculateAlternativePricingCost } from '../functions/pricingComparison';
 import { getTierCost, getTOUCost } from './GasComparisonChart';
@@ -14,35 +17,22 @@ const PricingComparisonChart = () => {
   let canvasRef: HTMLCanvasElement | undefined;
   let chart: Chart | null = null;
   const [formattedLabels, setFormattedLabels] = createSignal<string[]>([]);
-  const [savingsSummary, setSavingsSummary] = createSignal<{ total: number; percentage: number; cheaper: string } | null>(null);
+  const [savingsSummary, setSavingsSummary] = createSignal<{
+    total: number;
+    percentage: number;
+    cheaper: string;
+  } | null>(null);
 
-  createEffect(async () => {
-    // @ts-ignore
-    const baseline = state.baselineElectricityUsageKWh;
-
+  createEffect(() => {
     if (!state.meterData) return;
-
-    let weatherData = state.weatherData;
-
-    if (state.dateRange) {
-      weatherData = await getWeather(state.dateRange);
-
-      if (
-        weatherData === null ||
-        !weatherData?.daily ||
-        !weatherData.daily.time ||
-        !weatherData.daily.apparent_temperature_mean
-      ) {
-        console.error('Failed to fetch weather data');
-        return;
-      }
-    }
 
     const labels = state.meterData.map((row) => formatDate(parseLocalDate(row['Reading Date'])));
 
     setFormattedLabels(labels);
+  });
 
-    if (canvasRef && state.weatherData && state.meterData) {
+  createEffect(() => {
+    if (canvasRef && state.meterData) {
       if (chart) {
         chart.destroy();
       }
@@ -67,14 +57,14 @@ const PricingComparisonChart = () => {
   return (
     <section class="chart-container">
       <h2>Electricity Pricing Comparison</h2>
-      <canvas ref={canvasRef} id={CHART_ID}></canvas>
+      <canvas ref={canvasRef} id={CHART_ID} />
       {savingsSummary() && (
         <div class="info-box">
-          <p style={{ 'margin': '0.5rem 0', 'font-size': '1.1rem', 'color': '#333' }}>
-            <strong>Total Savings: </strong>
-            ${Math.abs(savingsSummary()!.total).toFixed(2)} ({savingsSummary()!.percentage.toFixed(1)}%)
+          <p style={{ margin: '0.5rem 0', 'font-size': '1.1rem', color: '#333' }}>
+            <strong>Total Savings: </strong>${Math.abs(savingsSummary()!.total).toFixed(2)} (
+            {savingsSummary()!.percentage.toFixed(1)}%)
           </p>
-          <p style={{ 'margin': '0.5rem 0', 'font-size': '0.95rem', 'color': '#333' }}>
+          <p style={{ margin: '0.5rem 0', 'font-size': '0.95rem', color: '#333' }}>
             <strong>Cheaper method: </strong>
             {savingsSummary()!.cheaper}
           </p>
@@ -122,7 +112,13 @@ const generateComparisonChart = (
       const offPeak = touRow['Total Off-Peak kwH Usage *'] || 0;
       const totalDailyUsage = onPeak + midPeak + offPeak;
 
-      const cost = calculateAlternativePricingCost(row, readingDate, isTiered, state.baselineElectricityUsageKWh, cumulativeMonthlyUsage);
+      const cost = calculateAlternativePricingCost(
+        row,
+        readingDate,
+        isTiered,
+        state.baselineElectricityUsageKWh,
+        cumulativeMonthlyUsage,
+      );
 
       // Update cumulative for next iteration
       cumulativeMonthlyUsage += totalDailyUsage;
@@ -130,7 +126,13 @@ const generateComparisonChart = (
       return cost;
     } else {
       // For tiered data, no cumulative tracking needed
-      return calculateAlternativePricingCost(row, readingDate, isTiered, state.baselineElectricityUsageKWh, 0);
+      return calculateAlternativePricingCost(
+        row,
+        readingDate,
+        isTiered,
+        state.baselineElectricityUsageKWh,
+        0,
+      );
     }
   });
 
@@ -174,10 +176,10 @@ const generateComparisonChart = (
 
   console.log(
     `Pricing Comparison:\n` +
-    `Current Method (${currentMethodLabel}): $${totalCurrentMethod.toFixed(2)}\n` +
-    `Alternative Method (${alternativeMethodLabel}): $${totalAlternativeMethod.toFixed(2)}\n` +
-    `Savings: $${totalSavings.toFixed(2)} (${savingsPercentage.toFixed(2)}%)\n` +
-    `Cheaper: ${totalSavings > 0 ? alternativeMethodLabel : currentMethodLabel}`,
+      `Current Method (${currentMethodLabel}): $${totalCurrentMethod.toFixed(2)}\n` +
+      `Alternative Method (${alternativeMethodLabel}): $${totalAlternativeMethod.toFixed(2)}\n` +
+      `Savings: $${totalSavings.toFixed(2)} (${savingsPercentage.toFixed(2)}%)\n` +
+      `Cheaper: ${totalSavings > 0 ? alternativeMethodLabel : currentMethodLabel}`,
   );
 
   return {

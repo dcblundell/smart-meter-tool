@@ -1,5 +1,5 @@
-import Chart, { type ChartConfiguration } from "chart.js/auto";
-import { createEffect, createSignal, onCleanup } from "solid-js";
+import Chart, { type ChartConfiguration } from 'chart.js/auto';
+import { createEffect, onCleanup } from 'solid-js';
 import {
   type TOUSmartMeterRow,
   type TieredSmartMeterRow,
@@ -7,38 +7,33 @@ import {
   READING_DATE_KEY,
   TOTAL_TIER_1_KEY,
   TOTAL_TIER_2_KEY,
-} from "../types/SmartMeter";
-import { GAS_EFFICIENCY, GAS_KWH_PER_M3 } from "../types/Gas";
-import { formatDate, parseLocalDate } from "../functions/Time";
+} from '../types/SmartMeter';
+import { GAS_EFFICIENCY, GAS_KWH_PER_M3 } from '../types/Gas';
+import { parseLocalDate, unixToTimezone } from '../functions/Time';
 import {
   getTierRateForDate,
   getTOURateForDate,
   getGasRateForDate,
-} from "../functions/getRatesForDate";
-import { state, setState } from "../store";
-import getWeather from "../functions/getWeather";
-import { COMPARE_GAS_CONFIG } from "../definitions/chart";
-import { getDynamicCOP } from "../types/HeatPumps";
+} from '../functions/getRatesForDate';
+import { state, setState } from '../store';
+import getWeather from '../functions/getWeather';
+import { COMPARE_GAS_CONFIG } from '../definitions/chart';
+import { getDynamicCOP } from '../types/HeatPumps';
 
-const CHART_ID = "temp";
+const CHART_ID = 'temp';
 
 const GasComparisonChart = () => {
   let canvasRef: HTMLCanvasElement | undefined;
   let chart: Chart | null = null;
-  const [formattedLabels, setFormattedLabels] = createSignal<string[]>([]);
-  const [temperatureData, setTemperatureData] = createSignal<number[]>([]);
 
-  createEffect(async () => {
-    // @ts-ignore - triggers the effect when baselineElectricityUsageKWh changes, refactor later
-    const baseline = state.baselineElectricityUsageKWh;
-
+  const initializeChart = async () => {
     if (!state.meterData) return;
 
     let weatherData = state.weatherData;
 
     if (state.dateRange) {
       weatherData = await getWeather(state.dateRange);
-      setState("weatherData", weatherData);
+      setState('weatherData', weatherData);
 
       if (
         weatherData === null ||
@@ -46,87 +41,39 @@ const GasComparisonChart = () => {
         !weatherData.daily.time ||
         !weatherData.daily.apparent_temperature_mean
       ) {
-        console.error("Failed to fetch weather data");
+        console.error('Failed to fetch weather data');
         return;
       }
-
-      const data = state.meterData.map((row) => {
-        const readingDate = new Date(row[READING_DATE_KEY]);
-        const closestTempIndex = weatherData?.daily.time.reduce(
-          (nearest, current, i) => {
-            const readingDateTime = readingDate.getTime();
-            const currentTime = current.getTime();
-            const timeDiff = Math.abs(currentTime - readingDateTime);
-            const nearestTime = weatherData?.daily.time[nearest].getTime();
-
-            if (nearestTime === undefined) return i;
-
-            const nearestDiff = Math.abs(nearestTime - readingDateTime);
-            return timeDiff < nearestDiff ? i : nearest;
-          },
-          0,
-        );
-
-        if (
-          typeof closestTempIndex === "number" &&
-          Array.isArray(weatherData?.daily.apparent_temperature_mean) &&
-          weatherData?.daily.apparent_temperature_mean[closestTempIndex] !==
-            undefined
-        ) {
-          return weatherData.daily.apparent_temperature_mean[closestTempIndex];
-        }
-        return null;
-      });
-
-      if (data) {
-        setTemperatureData(data.filter((v): v is number => v !== null));
-      }
     }
-
-    const labels = state.meterData.map((row) =>
-      formatDate(parseLocalDate(row[READING_DATE_KEY])),
-    );
-
-    setFormattedLabels(labels);
 
     if (canvasRef && state.weatherData && state.meterData) {
       // Always recalculate labels and temperatureData when meterData or weatherData changes
       const weatherData = state.weatherData;
       const labels = state.meterData.map((row) =>
-        unixToTimezone(new Date(row["Reading Date"]).getTime() / 1000),
+        unixToTimezone(new Date(row['Reading Date']).getTime() / 1000),
       );
-      setFormattedLabels(labels);
 
       const data = state.meterData.map((row) => {
-        const readingDate = new Date(row["Reading Date"]);
-        const closestTempIndex = weatherData.daily.time.reduce(
-          (nearest, current, i) => {
-            const timeDiff = Math.abs(
-              current.getTime() - readingDate.getTime(),
-            );
-            const nearestDiff = Math.abs(
-              weatherData.daily.time[nearest].getTime() - readingDate.getTime(),
-            );
-            return timeDiff < nearestDiff ? i : nearest;
-          },
-          0,
-        );
+        const readingDate = new Date(row['Reading Date']);
+        const closestTempIndex = weatherData.daily.time.reduce((nearest, current, i) => {
+          const timeDiff = Math.abs(current.getTime() - readingDate.getTime());
+          const nearestDiff = Math.abs(
+            weatherData.daily.time[nearest].getTime() - readingDate.getTime(),
+          );
+          return timeDiff < nearestDiff ? i : nearest;
+        }, 0);
         return weatherData.daily.apparent_temperature_mean[closestTempIndex];
       });
-      setTemperatureData(data);
 
       if (chart) {
         chart.destroy();
       }
-      chart = generateChart(
-        canvasRef,
-        state.meterData,
-        state.isTiered,
-        labels,
-        data,
-        chart,
-      );
+      chart = generateChart(canvasRef, state.meterData, state.isTiered, labels, data, chart);
     }
+  };
+
+  createEffect(() => {
+    initializeChart();
   });
 
   // Cleanup chart on component unmount
@@ -139,7 +86,7 @@ const GasComparisonChart = () => {
 
   return (
     <section class="chart-container">
-      <canvas ref={canvasRef} id={CHART_ID}></canvas>
+      <canvas ref={canvasRef} id={CHART_ID} />
     </section>
   );
 };
@@ -185,17 +132,17 @@ const generateChart = (
     return cost;
   });
 
-  const chartConfig: ChartConfiguration<"line"> = {
+  const chartConfig: ChartConfiguration<'line'> = {
     ...COMPARE_GAS_CONFIG,
     data: {
       labels: formattedLabels,
       datasets: [
         {
-          label: "Temperature (°C)",
+          label: 'Temperature (°C)',
           data: temperatureData,
-          yAxisID: "y",
-          borderColor: "#36a2eb",
-          backgroundColor: "#36a2eb33",
+          yAxisID: 'y',
+          borderColor: '#36a2eb',
+          backgroundColor: '#36a2eb33',
           pointRadius: 1,
           order: 1,
         },
@@ -209,20 +156,20 @@ const generateChart = (
         //   order: 2,
         // },
         {
-          label: "Electricity Cost ($)",
+          label: 'Electricity Cost ($)',
           data: electricCostArr,
-          yAxisID: "y1",
-          borderColor: "#4bc0c0",
-          backgroundColor: "#4bc0c033",
+          yAxisID: 'y1',
+          borderColor: '#4bc0c0',
+          backgroundColor: '#4bc0c033',
           pointRadius: 1,
           order: 3,
         },
         {
-          label: "Estimated Gas Cost ($)",
+          label: 'Estimated Gas Cost ($)',
           data: gasCostData,
-          yAxisID: "y1",
-          borderColor: "#ff6384",
-          backgroundColor: "#ff638433",
+          yAxisID: 'y1',
+          borderColor: '#ff6384',
+          backgroundColor: '#ff638433',
           pointRadius: 1,
           order: 4,
         },
@@ -256,15 +203,10 @@ const generateChart = (
 
   const newChart = new Chart(canvasRef, chartConfig);
 
+  setState('totalGasCost', gasCostData?.length > 0 ? gasCostData.reduce((a, b) => a + b, 0) : 0);
   setState(
-    "totalGasCost",
-    gasCostData?.length > 0 ? gasCostData.reduce((a, b) => a + b, 0) : 0,
-  );
-  setState(
-    "totalElectricityCost",
-    electricCostArr?.length > 0
-      ? electricCostArr.reduce((a, b) => a + b, 0)
-      : 0,
+    'totalElectricityCost',
+    electricCostArr?.length > 0 ? electricCostArr.reduce((a, b) => a + b, 0) : 0,
   );
 
   return newChart;
@@ -314,9 +256,9 @@ const getTierCost = (row: TieredSmartMeterRow, readingDate: Date) => {
 };
 
 const getTOUConsumption = (row: TOUSmartMeterRow) => {
-  const onPeak = row["Total On-Peak kwH Usage"] || 0;
-  const midPeak = row["Total Mid-Peak kwH Usage"] || 0;
-  const offPeak = row["Total Off-Peak kwH Usage *"] || 0;
+  const onPeak = row['Total On-Peak kwH Usage'] || 0;
+  const midPeak = row['Total Mid-Peak kwH Usage'] || 0;
+  const offPeak = row['Total Off-Peak kwH Usage *'] || 0;
   const baseline = state.baselineElectricityUsageKWh;
 
   // Split baseline evenly across all periods with usage
@@ -324,17 +266,17 @@ const getTOUConsumption = (row: TOUSmartMeterRow) => {
   const usedPeriods = periods.filter((v) => v > 0).length;
   const split = usedPeriods > 0 ? baseline / usedPeriods : 0;
 
-  let onPeakHeating = onPeak > 0 ? Math.max(0, onPeak - split) : 0;
-  let midPeakHeating = midPeak > 0 ? Math.max(0, midPeak - split) : 0;
-  let offPeakHeating = offPeak > 0 ? Math.max(0, offPeak - split) : 0;
+  const onPeakHeating = onPeak > 0 ? Math.max(0, onPeak - split) : 0;
+  const midPeakHeating = midPeak > 0 ? Math.max(0, midPeak - split) : 0;
+  const offPeakHeating = offPeak > 0 ? Math.max(0, offPeak - split) : 0;
 
   return onPeakHeating + midPeakHeating + offPeakHeating;
 };
 
 const getTOUCost = (row: TOUSmartMeterRow, readingDate: Date) => {
-  const onPeak = row["Total On-Peak kwH Usage"] || 0;
-  const midPeak = row["Total Mid-Peak kwH Usage"] || 0;
-  const offPeak = row["Total Off-Peak kwH Usage *"] || 0;
+  const onPeak = row['Total On-Peak kwH Usage'] || 0;
+  const midPeak = row['Total Mid-Peak kwH Usage'] || 0;
+  const offPeak = row['Total Off-Peak kwH Usage *'] || 0;
   const baseline = state.baselineElectricityUsageKWh;
 
   // Split baseline evenly across all periods with usage
@@ -342,15 +284,13 @@ const getTOUCost = (row: TOUSmartMeterRow, readingDate: Date) => {
   const usedPeriods = periods.filter((v) => v > 0).length;
   const split = usedPeriods > 0 ? baseline / usedPeriods : 0;
 
-  let onPeakHeating = onPeak > 0 ? Math.max(0, onPeak - split) : 0;
-  let midPeakHeating = midPeak > 0 ? Math.max(0, midPeak - split) : 0;
-  let offPeakHeating = offPeak > 0 ? Math.max(0, offPeak - split) : 0;
+  const onPeakHeating = onPeak > 0 ? Math.max(0, onPeak - split) : 0;
+  const midPeakHeating = midPeak > 0 ? Math.max(0, midPeak - split) : 0;
+  const offPeakHeating = offPeak > 0 ? Math.max(0, offPeak - split) : 0;
 
   const rates = getTOURateForDate(readingDate);
   return (
-    onPeakHeating * rates.onPeak +
-    midPeakHeating * rates.midPeak +
-    offPeakHeating * rates.offPeak
+    onPeakHeating * rates.onPeak + midPeakHeating * rates.midPeak + offPeakHeating * rates.offPeak
   );
 };
 

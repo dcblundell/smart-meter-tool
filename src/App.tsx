@@ -147,20 +147,20 @@ function App() {
                 }
               </span>
             </p>
+            <label>
+              Baseline Electricity Usage (kWh/day):
+              <input
+                type="number"
+                value={state.baselineElectricityUsageKWh}
+                min={0}
+                max={100}
+                onInput={(e) =>
+                  setState('baselineElectricityUsageKWh', parseInt(e.currentTarget.value))
+                }
+              />
+            </label>
           </div>
 
-          <label>
-            Baseline Electricity Usage (kWh/day):
-            <input
-              type="number"
-              value={state.baselineElectricityUsageKWh}
-              min={0}
-              max={100}
-              onInput={(e) =>
-                setState('baselineElectricityUsageKWh', parseInt(e.currentTarget.value))
-              }
-            />
-          </label>
 
           <PricingComparisonChart />
 
